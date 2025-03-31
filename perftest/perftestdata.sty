@@ -1,0 +1,195 @@
+\begin{tikzpicture}
+\begin{axis}[
+    title={Miss-Raten für verschiedene TLB-Konfigurationen mit ASID},
+    xlabel={Anzahl Mengen},
+    ylabel={Miss-Rate [\%]},
+    xmin=1, xmax=8,
+    ymin=0, ymax=2,
+    ytick={0,0.5, 1, 1.5, 2},
+    xtick={1,2,3,4,5,6,7,8},
+    legend pos=north east,
+    ymajorgrids=true,
+    grid style=dashed,
+]
+
+\addplot[
+    color=blue,
+    mark=square,
+    ]
+    coordinates {
+    (1, 8.23)(2, 1.325)(4, 0.426)(8,0.183)
+    };
+    \addlegendentry{LRU 2 Zeilen};
+
+\addplot[
+    color=blue,
+    mark=triangle,
+    ]
+    coordinates {
+    (1, 8.188)(2, 1.291)(4, 0.441)(8,0.187)
+    };
+    \addlegendentry{PLRU 2 Zeilen};
+\addplot[
+    color=blue,
+    mark=circle,
+    ]
+    coordinates {
+    (1, 8.188)(2, 1.599)(3, 0.681)(4, 0.541)(5, 0.441)(6, 0.352)(7, 0.294)(8,0.24)
+    };
+    \addlegendentry{FIFO 2 Zeilen};
+
+
+\addplot[
+    color=orange,
+    mark=square,
+    ]
+    coordinates {
+    (8,0.054)(4,0.226)(2,0.448)(1,1.848)
+    };
+    \addlegendentry{LRU 4 Zeilen};
+\addplot[
+    color=orange,
+    mark=triangle,
+    ]
+    coordinates {
+    (8,0.059)(4,0.271)(2,0.437)(1,1.904)
+    };
+    \addlegendentry{PLRU 4 Zeilen};
+\addplot[
+    color=orange,
+    mark=circle,
+    ]
+    coordinates {
+        (8,0.095)(7,0.111)(6,0.141)(5,0.186)(4,0.271)(3,0.379)(2,0.550)(1,1.902)
+    };
+    \addlegendentry{FIFO 4 Zeilen};
+
+
+\addplot[
+    color=green,
+    mark=square,
+    ]
+    coordinates {
+    (8,0.046)(4,0.089)(2,0.273)(1,0.855)
+    };
+    \addlegendentry{LRU 8 Zeilen};
+\addplot[
+    color=green,
+    mark=triangle,
+    ]
+    coordinates {
+    (8,0.044)(4,0.083)(2,0.246)(1,0.881)
+    };
+    \addlegendentry{PLRU 8 Zeilen};
+\addplot[
+    color=green,
+    mark=circle,
+    ]
+    coordinates {
+    (8,0.062)(7,0.066)(6,0.073)(5,0.082)(4,0.108)(3,0.162)(2,0.252)(1,0.883)
+
+    };
+    \addlegendentry{FIFO 8 Zeilen};
+    
+\end{axis}
+\end{tikzpicture}
+
+
+
+\begin{tikzpicture}
+\begin{axis}[
+    title={Miss-Raten für verschiedene TLB-Konfigurationen ohne ASID},
+    xlabel={Anzahl Mengen},
+    ylabel={Miss-Rate [\%]},
+    xmin=1, xmax=8,
+    ymin=0.25, ymax=1,
+    ytick={0,0.25, 0.5, 0.75, 1},
+    xtick={1,2,3,4,5,6,7,8},
+    legend pos=north east,
+    ymajorgrids=true,
+    grid style=dashed,
+]
+
+
+\addplot[
+    color=blue,
+    mark=square,
+    ]
+    coordinates {
+    (8,0.468)(4,0.484)(2,0.581)(1,2.075)
+    };
+    \addlegendentry{LRU 2 Zeilen};
+\addplot[
+    color=blue,
+    mark=triangle,
+    ]
+    coordinates {
+    (8,0.468)(4,0.511)(2,0.583)(1,2.073)
+    };
+    \addlegendentry{PLRU 2 Zeilen};
+\addplot[
+    color=blue,
+    mark=circle,
+    ]
+    coordinates {
+    (8,0.484)(7,0.485)(6,0.485)(5,0.494)(4,0.500)(3,0.541)(2,0.613)(1,2.071)
+
+    };
+    \addlegendentry{FIFO 2 Zeilen};
+
+\addplot[
+    color=orange,
+    mark=square,
+    ]
+    coordinates {
+    (8,0.467)(4,0.468)(2,0.474)(1,0.876)
+    };
+    \addlegendentry{LRU 4 Zeilen};
+\addplot[
+    color=orange,
+    mark=triangle,
+    ]
+    coordinates {
+    (8,0.467)(4,0.469)(2,0.476)(1,0.941)
+    };
+    \addlegendentry{PLRU 4 Zeilen};
+\addplot[
+    color=orange,
+    mark=circle,
+    ]
+    coordinates {
+        (8,0.473)(7,0.473)(6,0.474)(5,0.475)(4,0.478)(3,0.477)(2,0.475)(1,0.916)
+    };
+    \addlegendentry{FIFO 4 Zeilen};
+
+
+
+
+
+\addplot[
+    color=green,
+    mark=square,
+    ]
+    coordinates {
+    (8,0.467)(4,0.466)(2,0.467)(1,0.485)
+    };
+    \addlegendentry{LRU 8 Zeilen};
+
+\addplot[
+    color=green,
+    mark=triangle,
+    ]
+    coordinates {
+    (8,0.467)(4,0.466)(2,0.466)(1,0.524)
+    };
+    \addlegendentry{PLRU 8 Zeilen};
+\addplot[
+    color=green,
+    mark=circle,
+    ]
+    coordinates {
+    (8,0.469)(7,0.469)(6,0.469)(5,0.469)(4,0.467)(3,0.467)(2,0.467)(1,0.491)
+    };
+    \addlegendentry{FIFO 8 Zeilen};
+\end{axis}
+\end{tikzpicture}

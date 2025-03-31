@@ -1,0 +1,234 @@
+======= WITH ASIDS ======
+
+
+2 lines
+
+starting performance test for strategy 3
+waymask 9 : 4445518/52798809
+waymask 8 : 92058/50388344
+waymask 7 : 4405187/52696177
+waymask 6 : 4391914/52684146
+waymask 5 : 4448112/52695131
+waymask 4 : 215063/50452561
+waymask 3 : 4306076/52709961
+waymask 2 : 672263/50752605
+waymask 1 : 4335361/52675572
+(8,0.183)(4,0.426)(2,1.325)(1,8.230)
+starting performance test for strategy 2
+waymask 9 : 4359445/52690325
+waymask 8 : 94290/50397878
+waymask 7 : 4280889/52678461
+waymask 6 : 4321835/52677051
+waymask 5 : 4340809/52684133
+waymask 4 : 222473/50454479
+waymask 3 : 4319958/52684450
+waymask 2 : 655003/50754891
+waymask 1 : 4314370/52693817
+(8,0.187)(4,0.441)(2,1.291)(1,8.188)
+starting performance test for strategy 1
+waymask 9 : 120350/50415370
+waymask 8 : 120891/50414836
+waymask 7 : 148091/50420208
+waymask 6 : 177530/50442104
+waymask 5 : 222346/50469694
+waymask 4 : 273378/50510905
+waymask 3 : 344626/50575399
+waymask 2 : 813182/50849137
+waymask 1 : 4317388/52692355
+(8,0.240)(7,0.294)(6,0.352)(5,0.441)(4,0.541)(3,0.681)(2,1.599)(1,8.194)
+
+
+
+4 lines 
+PERFORMANCE TEST REPORT
+
+starting performance test for strategy 3
+waymask 9 : 1046293/50830523
+waymask 8 : 26993/50373157
+waymask 7 : 987312/50696049
+waymask 6 : 1005638/50714653
+waymask 5 : 1000430/50724636
+waymask 4 : 113717/50407257
+waymask 3 : 878552/50697135
+waymask 2 : 226139/50467134
+waymask 1 : 937078/50712098
+(8,0.054)(4,0.226)(2,0.448)(1,1.848)
+starting performance test for strategy 2
+waymask 9 : 984164/50731276
+waymask 8 : 29586/50375753
+waymask 7 : 948742/50711189
+waymask 6 : 1018934/50724596
+waymask 5 : 947614/50718063
+waymask 4 : 136608/50422904
+waymask 3 : 934943/50709708
+waymask 2 : 220428/50471153
+waymask 1 : 965412/50715264
+(8,0.059)(4,0.271)(2,0.437)(1,1.904)
+starting performance test for strategy 1
+waymask 9 : 49299/50382633
+waymask 8 : 48000/50383083
+waymask 7 : 55692/50382758
+waymask 6 : 71175/50382520
+waymask 5 : 93907/50393882
+waymask 4 : 136597/50421430
+waymask 3 : 191036/50441242
+waymask 2 : 277574/50504050
+waymask 1 : 964436/50708598
+(8,0.095)(7,0.111)(6,0.141)(5,0.186)(4,0.271)(3,0.379)(2,0.550)(1,1.902)
+
+
+
+8 lines
+PERFORMANCE TEST REPORT
+
+starting performance test for strategy 3
+waymask 9 : 443782/50582602
+waymask 8 : 22921/50373035
+waymask 7 : 409897/50471175
+waymask 6 : 484970/50500323
+waymask 5 : 443332/50496091
+waymask 4 : 44799/50378615
+waymask 3 : 415215/50486832
+waymask 2 : 137716/50417059
+waymask 1 : 431834/50483656
+(8,0.046)(4,0.089)(2,0.273)(1,0.855)
+starting performance test for strategy 2
+waymask 9 : 428616/50486739
+waymask 8 : 22057/50372981
+waymask 7 : 436809/50490995
+waymask 6 : 383077/50475829
+waymask 5 : 483295/50504073
+waymask 4 : 41644/50377023
+waymask 3 : 409799/50490016
+waymask 2 : 124111/50413989
+waymask 1 : 444568/50489338
+(8,0.044)(4,0.083)(2,0.246)(1,0.881)
+starting performance test for strategy 1
+waymask 9 : 31437/50371336
+waymask 8 : 31293/50371375
+waymask 7 : 33448/50371341
+waymask 6 : 36634/50374000
+waymask 5 : 41551/50376733
+waymask 4 : 54453/50381622
+waymask 3 : 81703/50388990
+waymask 2 : 126876/50415200
+waymask 1 : 445972/50490929
+(8,0.062)(7,0.066)(6,0.073)(5,0.082)(4,0.108)(3,0.162)(2,0.252)(1,0.883)
+
+
+
+======= WITHOUT ASIDS ======
+
+
+8 lines
+PERFORMANCE TEST REPORT
+
+starting performance test for strategy 3
+waymask 9 : 241152/50634743
+waymask 8 : 235833/50545172
+waymask 7 : 284847/50540225
+waymask 6 : 268664/50541345
+waymask 5 : 260321/50545424
+waymask 4 : 235780/50547777
+waymask 3 : 268681/50542352
+waymask 2 : 236003/50545153
+waymask 1 : 245117/50543669
+(8,0.467)(4,0.466)(2,0.467)(1,0.485)
+starting performance test for strategy 2
+waymask 9 : 264452/50540959
+waymask 8 : 235907/50543908
+waymask 7 : 252069/50544044
+waymask 6 : 248189/50543778
+waymask 5 : 244227/50546664
+waymask 4 : 235735/50547910
+waymask 3 : 244094/50538411
+waymask 2 : 235766/50543710
+waymask 1 : 264724/50545440
+(8,0.467)(4,0.466)(2,0.466)(1,0.524)
+starting performance test for strategy 1
+waymask 9 : 237249/50541240
+waymask 8 : 237288/50548166
+waymask 7 : 237162/50542226
+waymask 6 : 237264/50548124
+waymask 5 : 236866/50548024
+waymask 4 : 236265/50548090
+waymask 3 : 236183/50546410
+waymask 2 : 236085/50547834
+waymask 1 : 248062/50543949
+(8,0.469)(7,0.469)(6,0.469)(5,0.469)(4,0.467)(3,0.467)(2,0.467)(1,0.491)
+
+
+
+4 lines
+PERFORMANCE TEST REPORT
+
+starting performance test for strategy 3
+waymask 9 : 466002/50626926
+waymask 8 : 235859/50540642
+waymask 7 : 530318/50535986
+waymask 6 : 488758/50534792
+waymask 5 : 457319/50533122
+waymask 4 : 236390/50546265
+waymask 3 : 446636/50537436
+waymask 2 : 239753/50543453
+waymask 1 : 442566/50534595
+(8,0.467)(4,0.468)(2,0.474)(1,0.876)
+starting performance test for strategy 2
+waymask 9 : 465118/50537493
+waymask 8 : 235884/50540713
+waymask 7 : 471698/50534640
+waymask 6 : 464123/50536073
+waymask 5 : 464187/50536067
+waymask 4 : 236822/50546303
+waymask 3 : 454985/50531884
+waymask 2 : 240479/50541968
+waymask 1 : 475382/50537302
+(8,0.467)(4,0.469)(2,0.476)(1,0.941)
+starting performance test for strategy 1
+waymask 9 : 239025/50539557
+waymask 8 : 238999/50546360
+waymask 7 : 239087/50540675
+waymask 6 : 239528/50546612
+waymask 5 : 240114/50546284
+waymask 4 : 241638/50546398
+waymask 3 : 241225/50544858
+waymask 2 : 240043/50546284
+waymask 1 : 462972/50531819
+(8,0.473)(7,0.473)(6,0.474)(5,0.475)(4,0.478)(3,0.477)(2,0.475)(1,0.916)
+
+PERFORMANCE TEST REPORT
+
+starting performance test for strategy 3
+waymask 9 : 1048324/50800189
+waymask 8 : 237278/50666404
+waymask 7 : 1089753/50693786
+waymask 6 : 1053009/50688109
+waymask 5 : 1066624/50692075
+waymask 4 : 245344/50670724
+waymask 3 : 1024066/50690888
+waymask 2 : 294259/50677895
+waymask 1 : 1051746/50693627
+(8,0.468)(4,0.484)(2,0.581)(1,2.075)
+starting performance test for strategy 2
+waymask 9 : 1057058/50690745
+waymask 8 : 237211/50675045
+waymask 7 : 1079870/50696528
+waymask 6 : 1064327/50693591
+waymask 5 : 1025147/50693745
+waymask 4 : 258935/50667791
+waymask 3 : 1049992/50696396
+waymask 2 : 295543/50676309
+waymask 1 : 1050931/50689402
+(8,0.468)(4,0.511)(2,0.583)(1,2.073)
+starting performance test for strategy 1
+waymask 9 : 245116/50673590
+waymask 8 : 245316/50675019
+waymask 7 : 245776/50672136
+waymask 6 : 245521/50673545
+waymask 5 : 250213/50674993
+waymask 4 : 253480/50672201
+waymask 3 : 274263/50679210
+waymask 2 : 310519/50676249
+waymask 1 : 1049888/50696535
+(8,0.484)(7,0.485)(6,0.485)(5,0.494)(4,0.500)(3,0.541)(2,0.613)(1,2.071)
+

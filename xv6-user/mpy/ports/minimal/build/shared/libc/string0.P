@@ -1,0 +1,8 @@
+build/shared/libc/string0.o: ../../shared/libc/string0.c \
+ /opt/riscv_custom/lib/gcc/riscv64-unknown-elf/13.2.0/include/stdint.h \
+ /opt/riscv_custom/lib/gcc/riscv64-unknown-elf/13.2.0/include/stdint-gcc.h \
+ /opt/riscv_custom/lib/gcc/riscv64-unknown-elf/13.2.0/include/stddef.h
+../../shared/libc/string0.c :
+ /opt/riscv_custom/lib/gcc/riscv64-unknown-elf/13.2.0/include/stdint.h :
+ /opt/riscv_custom/lib/gcc/riscv64-unknown-elf/13.2.0/include/stdint-gcc.h :
+ /opt/riscv_custom/lib/gcc/riscv64-unknown-elf/13.2.0/include/stddef.h :
