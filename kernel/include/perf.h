@@ -1,6 +1,5 @@
-#ifndef __PERF__
-#define __PERF__
-
+#ifndef __PERF
+#define __PERF
 
 void perf_init(void);
 

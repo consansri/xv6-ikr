@@ -2,7 +2,7 @@
 #define __SBI_CALL_H
 
 #include "../../include/types.h"
-#include "sbi_dispatcher.h"
+#include "sbi_impl.h"
 
 //#define SBI_CALLER_DEBUG
 
@@ -128,6 +128,15 @@ struct SbiRet sbi_pmu_counter_stop(uint64 counter_idx_base, uint64 counter_idx_m
 struct SbiRet sbi_pmu_counter_fw_read(uint64 counter_idx) {
     return sbi_ecall(counter_idx, 0, 0, 0, 0, 0, /*FID*/ 5, /*EID*/ 0x504D55);
 }
+
+struct SbiRet sbi_pmu_counter_fw_read_hi(uint64 counter_idx) {
+    return sbi_ecall(counter_idx, 0, 0, 0, 0, 0, /*FID*/ 6, /*EID*/ 0x504D55);
+}
+
+struct SbiRet sbi_pmu_snapshot_set_shmem(uint64 shmem_phys_lo, uint64 shmem_phys_hi, uint64 flags) {
+    return sbi_ecall(shmem_phys_lo, shmem_phys_hi, flags, 0, 0, 0, /*FID*/ 7, /*EID*/ 0x504D55);
+}
+
 
 #endif
 

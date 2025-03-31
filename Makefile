@@ -53,8 +53,10 @@ OBJS += \
   $K/debug.o \
   $K/video.o \
   $K/perf.o \
-  $K/sbi/sbi_dispatcher.o \
   $K/sbi/sbi_call.o \
+  $K/sbi/sbi_impl.o \
+  $K/sbi/sbi_impl_base.o \
+  $K/sbi/sbi_impl_pmu.o
 
 
 TOOLPREFIX	:= $(shell pwd)/../rv64i-gcc-custom/bin/riscv64-unknown-elf-
