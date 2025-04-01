@@ -119,7 +119,11 @@ main(unsigned long hartid, unsigned long dtb_pa)
 
   // Consti was here 03.02.2025
   sbi_info();
+  
+  sbi_pmu_test_suite();
+
   sbi_pmu_test();
+  
   perf_init();
 
   // kernel -> user break

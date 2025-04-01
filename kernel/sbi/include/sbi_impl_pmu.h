@@ -7,8 +7,33 @@
 #define SBI_PMU_COUNTER_WIDTH       64
 #define SBI_PMU_COUNTER_ADDR_U      0xc00
 
-#define SBI_PMU_SNAPSHOT_FLAG_ENABLE  (1UL << 0)
-#define SBI_PMU_SNAPSHOT_FLAG_CLEAR   (1UL << 1)
+// FLAGS
+
+// for FID #2
+#define SBI_PMU_CFG_FLAG_SKIP_MATCH         (1UL << 0)
+#define SBI_PMU_CFG_FLAG_CLEAR_VALUE        (1UL << 1)
+#define SBI_PMU_CFG_FLAG_AUTO_START         (1UL << 2)
+#define SBI_PMU_CFG_FLAG_SET_VUINH          (1UL << 3)
+#define SBI_PMU_CFG_FLAG_SET_VSINH          (1UL << 4)
+#define SBI_PMU_CFG_FLAG_SET_UINH           (1UL << 5)
+#define SBI_PMU_CFG_FLAG_SET_SINH           (1UL << 6)
+#define SBI_PMU_CFG_FLAG_SET_MINH           (1UL << 7)
+#define SBI_PMU_CFG_RESERVED_MASK           (~((1UL << 8) - 1))
+
+// for FID #3
+#define SBI_PMU_START_SET_INIT_VALUE        (1UL << 0)
+#define SBI_PMU_START_FLAG_INIT_SNAPSHOT    (1UL << 1)
+#define SBI_PMU_START_RESERVED_MASK         (~((1UL << 2) - 1))
+
+// for FID #4
+#define SBI_PMU_STOP_FLAG_RESET             (1UL << 0)
+#define SBI_PMU_STOP_FLAG_TAKE_SNAPSHOT     (1UL << 1)
+#define SBI_PMU_STOP_RESERVED_MASK         (~((1UL << 2) - 1))
+
+// for FID #7
+
+
+
 
 // PMU Extension
 
@@ -32,24 +57,18 @@ struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem
 
 // Helper functions
 
-/* --- Inline Assembly Helpers for CSR Access --- */
-/* 
- * Because the CSR number must be an immediate in inline assembly, we implement 
- * read/write helpers via switch-case.
- */
-
-/* --- Inline Assembly Helpers for CSR Access --- */
+/* --- Assembly Helpers for CSR Access --- */
 /*
  * Due to RISC-V requirements, the CSR number must be an immediate.
  * We therefore use a switch-case to select the correct CSR based on the counter index.
  */
 
-inline uint64 read_hw_counter(uint64 idx);
-inline void write_hw_counter(uint64 idx, uint64 value);
-inline void write_hw_event(uint64 idx, uint64 value);
+uint64 read_hw_counter(uint64 idx);
+void write_hw_counter(uint64 idx, uint64 value);
+void write_hw_event(uint64 idx, uint64 value);
 
 /* Inline helpers for mcountinhibit CSR */
-inline uint64 read_mcountinhibit(void);
-inline void write_mcountinhibit(uint64 val);
+uint64 read_mcountinhibit(void);
+void write_mcountinhibit(uint64 val);
 
 #endif

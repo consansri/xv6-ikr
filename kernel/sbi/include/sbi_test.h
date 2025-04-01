@@ -16,14 +16,14 @@ void sbi_info(void) {
     struct SbiRet impl_version = sbi_get_impl_version();
     printf("    implementation:     %d(v%d.%d)\n", impl_id.value, impl_version.value >> 24, impl_version.value & 0b111111111111111111111111);
 
-    // struct SbiRet mvendorid = sbi_get_mvendorid();
-    // printf("    mvendorid:          %d\n", mvendorid.value);
+    struct SbiRet mvendorid = sbi_get_mvendorid();
+    printf("    mvendorid:          %d\n", mvendorid.value);
 
-    // struct SbiRet marchid = sbi_get_marchid();
-    // printf("    marchid:            %d\n", marchid.value);
+    struct SbiRet marchid = sbi_get_marchid();
+    printf("    marchid:            %d\n", marchid.value);
 
-    // struct SbiRet mimpid = sbi_get_mimpid();
-    // printf("    mimpid:             %d\n\n", mimpid.value);
+    struct SbiRet mimpid = sbi_get_mimpid();
+    printf("    mimpid:             %d\n\n", mimpid.value);
     
     printf("    extensions:\n");
     // BASE
@@ -96,27 +96,116 @@ void sbi_info(void) {
 
 }
 
+/* Test function for SBI PMU implementation */
+void sbi_pmu_test_suite(void)
+{
+    struct SbiRet ret;
+
+    printf("==========================================================\n");
+    printf("                    SBI PMU TEST SUITE                    \n");
+    printf("==========================================================\n");
+
+    printf("\n");
+
+    /* 1. Get the total number of PMU counters */
+    ret = sbi_pmu_num_counters();
+    if (ret.error == SBI_SUCCESS)
+        printf("[NUM COUNTERS] Available PMU counters: %d\n", ret.value);
+    else
+        printf("[NUM COUNTERS] Error: %d\n", ret.error);
+
+    /* 2. Get counter information for a valid counter (counter 3) */
+    ret = sbi_pmu_counter_get_info(3);
+    if (ret.error == SBI_SUCCESS)
+        printf("[COUNTER INFO] Counter 3 Info: 0x%x\n", ret.value);
+    else
+        printf("[COUNTER INFO] Error reading counter 3 info: %d\n", ret.error);
+
+    /* 3. Test configuring a counter for a "CPU cycles" event (event code 0x0001)
+     * Use base=3 and mask=0x1 (only counter 3) with AUTO_START and CLEAR_VALUE flags.
+     */
+    uint64 config_flags = SBI_PMU_CFG_FLAG_AUTO_START | SBI_PMU_CFG_FLAG_CLEAR_VALUE;
+    uint64 event_idx = 0x0001; // Example: CPU cycles event
+    uint64 event_data = 0;     // Not used for this event
+    ret = sbi_pmu_counter_config_matching(3, 0x1, config_flags, event_idx, event_data);
+    if (ret.error == SBI_SUCCESS)
+        printf("[CONFIG MATCH] Counter %d configured for event 0x%x (CPU cycles)\n", ret.value, event_idx);
+    else
+        printf("[CONFIG MATCH] Failed to configure counter for event 0x%x, error: %d\n", event_idx, ret.error);
+
+    /* 4. Test configuring another event using the SKIP_MATCH flag.
+     * For instance, an "Instructions" event (event code 0x0002) using base=3 and mask=0x2 (selects counter 4).
+     */
+    config_flags = SBI_PMU_CFG_FLAG_SKIP_MATCH | SBI_PMU_CFG_FLAG_AUTO_START;
+    event_idx = 0x0002; // Example: Instructions event
+    ret = sbi_pmu_counter_config_matching(3, 0x2, config_flags, event_idx, event_data);
+    if (ret.error == SBI_SUCCESS)
+        printf("[CONFIG MATCH] (Skip Match) Counter %d configured for event 0x%x (Instructions)\n", ret.value, event_idx);
+    else
+        printf("[CONFIG MATCH] (Skip Match) Failed to configure counter for event 0x%x, error: %d\n", event_idx, ret.error);
+
+    /* 5. Test starting a counter explicitly.
+     * Let's assume we want to start counter 5 (base 3 with mask 0x4 selects counter 3+2=5)
+     * with an initial value (e.g., 0x100).
+     */
+    uint64 start_flags = SBI_PMU_START_SET_INIT_VALUE;
+    uint64 initial_value = 0x100;
+    ret = sbi_pmu_counter_start(3, 0x4, start_flags, initial_value);
+    if (ret.error == SBI_SUCCESS)
+        printf("[START] Started counters with mask 0x%x and initial value 0x%x\n", 0x4, initial_value);
+    else
+        printf("[START] Failed to start counters, error: %d\n", ret.error);
+
+    /* 6. Test stopping a counter.
+     * Stop the same counter (counter 5) by setting its corresponding bit in mcountinhibit.
+     */
+    uint64 stop_flags = 0; // No reset flag set in this test.
+    ret = sbi_pmu_counter_stop(3, 0x4, stop_flags);
+    if (ret.error == SBI_SUCCESS)
+        printf("[STOP] Successfully stopped counters with mask 0x%x\n", 0x4);
+    else
+        printf("[STOP] Failed to stop counters, error: %d\n", ret.error);
+
+    /* 7. Test reading the lower 64 bits (or XLEN bits) of a firmware counter.
+     * For example, read counter 3.
+     */
+    ret = sbi_pmu_counter_fw_read(3);
+    if (ret.error == SBI_SUCCESS)
+        printf("[READ] Firmware counter 3 value: 0x%x\n", ret.value);
+    else
+        printf("[READ] Failed to read firmware counter 3, error: %d\n", ret.error);
+
+
+    printf("\n");
+
+    printf("==========================================================\n");
+    printf("                  SBI PMU TEST COMPLETED                  \n");
+    printf("==========================================================\n");
+}
+
 void sbi_pmu_test(void) {
     printf("------------------------- SBI PMU Test -------------------------\n");
+
+    printf("\n");
 
     /* Test configuration of counter 3:
      * We use counter index base = 3 and a mask with bit 0 set (so only counter 3 is affected).
      * For our test, we use sample values for config_flags, event_idx, and event_data.
      */
     uint64 counter_base = 3;
-    uint64 counter_mask = 1ULL; // only bit0 => counter 3
-    uint64 config_flags = 0b11;      // Sample flags
-    uint64 event_idx    = 0x1;       // Sample event index
-    uint64 event_data   = 0x1;    // Sample event data
+    uint64 counter_mask = 1UL;      // only bit0 => counter 3
+    uint64 config_flags = 0b11;     // Sample flags
+    uint64 event_idx    = 0x1;      // Sample event index
+    uint64 event_data   = 0x0;      // Sample event data
     struct SbiRet ret;
 
     ret = sbi_pmu_counter_config_matching(counter_base, counter_mask,
                                           config_flags, event_idx, event_data);
-    if(ret.error != SBI_SUCCESS) {
-        printf("PMU configuration matching failed: error %d\n", ret.error);
+    if (ret.error != SBI_SUCCESS) {
+        printf("    PMU configuration matching failed: error %d\n", ret.error);
     } else {
         uint64 combined = (event_data << 32) | (config_flags << 16) | (event_idx & 0xFFFF);
-        printf("Configured PMU counter 0x%x: event config = 0x%x\n", counter_base, combined);
+        printf("    Configured PMU counter 0x%x: event config = 0x%x\n", counter_base, combined);
     }
 
     /* Start counter 3 with an initial value of 0.
@@ -125,9 +214,9 @@ void sbi_pmu_test(void) {
     uint64 initial_value = 0;
     ret = sbi_pmu_counter_start(counter_base, counter_mask, 0, initial_value);
     if(ret.error != SBI_SUCCESS) {
-        printf("PMU counter start failed: error %d\n", ret.error);
+        printf("    PMU counter start failed: error %d\n", ret.error);
     } else {
-        printf("Started PMU counter 0x%x with initial value %d\n", counter_base, initial_value);
+        printf("    Started PMU counter 0x%x with initial value %d\n", counter_base, initial_value);
     }
 
     /* Simulate some workload or delay */
@@ -135,18 +224,18 @@ void sbi_pmu_test(void) {
 
     /* Read the counter value (lower 32 bits) for counter 3 */
     ret = sbi_pmu_counter_fw_read(counter_base);
-    if(ret.error != SBI_SUCCESS) {
-        printf("PMU counter read failed: error %d\n", ret.error);
+    if (ret.error != SBI_SUCCESS) {
+        printf("    PMU counter read failed: error %d\n", ret.error);
     } else {
-        printf("Read PMU counter 0x%x value (lower 32 bits): %d\n", counter_base, ret.value);
+        printf("    Read PMU counter 0x%x value: %d\n", counter_base, ret.value);
     }
 
     /* Stop counter 3: This sets the corresponding bit in mcountinhibit */
     ret = sbi_pmu_counter_stop(counter_base, counter_mask, 0);
     if(ret.error != SBI_SUCCESS) {
-        printf("PMU counter stop failed: error %d\n", ret.error);
+        printf("    PMU counter stop failed: error %d\n", ret.error);
     } else {
-        printf("Stopped PMU counter 0x%x\n", counter_base);
+        printf("    Stopped PMU counter 0x%x\n", counter_base);
     }
 
     /* Setup shared memory for PMU snapshot.
@@ -158,12 +247,14 @@ void sbi_pmu_test(void) {
 
     ret = sbi_pmu_snapshot_set_shmem((uint64)(shmem_phys & 0xffffffffffffffffULL),
                                        (uint64)(shmem_phys >> 64),
-                                       SBI_PMU_SNAPSHOT_FLAG_CLEAR);
+                                       0UL);
     if(ret.error != SBI_SUCCESS) {
-        printf("Setting PMU snapshot shared memory failed: error %d\n", ret.error);
+        printf("    Setting PMU snapshot shared memory failed: error %d\n", ret.error);
     } else {
-        printf("PMU snapshot shared memory set at address: 0x%x\n", shmem_phys);
+        printf("    PMU snapshot shared memory set at address: 0x%x\n", shmem_phys);
     }
+
+    printf("\n");
 
     printf("------------------------- SBI PMU Test -------------------------\n");
 }

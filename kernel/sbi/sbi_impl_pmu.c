@@ -20,7 +20,6 @@ static uint64 snapshot_flags = 0;
 
 /* Return the number of PMU counters available */
 struct SbiRet sbi_pmu_num_counters_impl(void) {
-
     struct SbiRet sbiret;
     sbiret.error = SBI_SUCCESS;
     sbiret.value = SBI_PMU_COUNTER_NUM;
@@ -38,7 +37,7 @@ struct SbiRet sbi_pmu_counter_get_info_impl(uint64 counter_idx) {
 
     struct SbiRet sbiret;
 
-    if (counter_idx < SBI_PMU_COUNTER_NUM && counter_idx >= 0){
+    if (counter_idx <= 31 && counter_idx >= 3){
         sbiret.error = SBI_SUCCESS;
 
         // [11:0]       CSR (12bit user CSR number)
@@ -62,28 +61,86 @@ struct SbiRet sbi_pmu_counter_get_info_impl(uint64 counter_idx) {
     return sbiret;
 }
 
-/* Configure one or more counters by writing the event configuration registers.
- * For each bit set in counter_idx_mask, the counter index is (counter_idx_base + bit).
- * The combined event configuration value is encoded as:
- *   [15:0]   = event_idx
- *   [31:16]  = config_flags
- *   [63:32]  = event_data
+/*
+ * sbi_pmu_counter_config_matching:
+ *
+ * Find and configure a matching PMU counter.
+ *
+ * Parameters:
+ *   counter_idx_base:  Base index for a set of logical counters.
+ *   counter_idx_mask:  Bitmask (relative to the base) specifying which counters to consider.
+ *   config_flags:      Configuration and filter flags (bits 0-7 used; reserved bits must be zero).
+ *   event_idx:         Encodes the event type (upper 4 bits) and event code (lower 16 bits).
+ *   event_data:        Additional event data (typically used for firmware or raw events).
+ *
+ * Returns:
+ *   On success, sbiret.error == SBI_SUCCESS and sbiret.value contains the chosen counter index.
+ *   On failure, an appropriate error code is returned.
  */
 struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 config_flags, uint64 event_idx, uint64 event_data) {
 
     struct SbiRet ret = { .error = SBI_SUCCESS, .value = 0 };
-    uint64 combined = (event_data << 32) | (config_flags << 16) | (event_idx & 0xFFFF);
+
+    // 1. Validation
+
+    /* Validate reserved bits in config_flags: only lower 8 bits are allowed */
+    if (config_flags & SBI_PMU_CFG_RESERVED_MASK) {
+        ret.error = SBI_ERR_INVALID_PARAM;
+        ret.value = 0;
+        return ret;
+    }
+
+    /* Validate that the base index is within range */
+    if (counter_idx_base < 3 || counter_idx_base > 31) {
+        ret.error = SBI_ERR_INVALID_PARAM;
+        ret.value = 0;
+        return ret;
+    }
+
+    uint64 selected_idx = 0xffffffffffffffffUL;
+
+    // 2. Selection
+    uint64 curr_mcountinhibit = read_mcountinhibit();
     for (int bit = 0; bit < 64; bit++) {
-        if (counter_idx_mask & (1ULL << bit)) {
+        if (counter_idx_mask & (1UL << bit)) {
             uint64 idx = counter_idx_base + bit;
             if (idx < 3 || idx > 31) {
                 ret.error = SBI_ERR_INVALID_PARAM;
-                return ret;
+                break;
             }
-            write_hw_event(idx, combined);
-            event_config[idx] = combined;
+
+            // Skip Matching and assume availability if flag is set
+            if ((config_flags & SBI_PMU_CFG_FLAG_SKIP_MATCH) == 0UL) {
+            
+                // Check availability of counter  
+                if (((curr_mcountinhibit >> idx) & 1UL) == 0UL ) {
+                    // Counter is currently in use
+                    continue;
+                }                
+            }
+
+            // Select counter
+            selected_idx = idx;
+            break;
         }
     }
+
+    // 3. Configuration
+    if (selected_idx != 0xffffffffffffffffUL) {
+        ret.value = selected_idx;
+
+        write_hw_event(selected_idx, event_idx);
+
+        if ((config_flags & SBI_PMU_CFG_FLAG_CLEAR_VALUE) != 0UL) {
+            write_hw_counter(selected_idx, 0UL);
+        }
+
+        if ((config_flags & SBI_PMU_CFG_FLAG_AUTO_START) != 0UL) {
+            curr_mcountinhibit &= ~(1UL << selected_idx);
+            write_mcountinhibit(curr_mcountinhibit);
+        }
+    }
+
     return ret;
 }
 
@@ -95,33 +152,33 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
 struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 start_flags, uint64 initial_value) {
 
     struct SbiRet ret = { .error = SBI_SUCCESS, .value = 0 };
-    
-    uint64 inhibit_mask = 0;
+
+    if (start_flags & SBI_PMU_START_RESERVED_MASK != 0UL) {
+        ret.error = SBI_ERR_INVALID_PARAM;
+        return ret;
+    }
+
+    uint64 curr_mcountinhibit = read_mcountinhibit();
+
     for (int bit = 0; bit < 64; bit++) {
-        if (counter_idx_mask & (1ULL << bit)) {
+        if (counter_idx_mask & (1UL << bit)) {
             uint64 idx = counter_idx_base + bit;
             if (idx < 3 || idx > 31) {
                 ret.error = SBI_ERR_INVALID_PARAM;
                 return ret;
             }
 
-            inhibit_mask |= (1ULL << idx);
+            // Clear inhibit bits to start counters
+            curr_mcountinhibit &= ~(1UL << idx);
 
-            if (start_flags & 1 == 1) { // SBI_PMU_START_SET_INIT_VALUE: set the value of counters based on the initial_value parameter.
+            if (start_flags & SBI_PMU_START_SET_INIT_VALUE != 0UL) { // SBI_PMU_START_SET_INIT_VALUE: set the value of counters based on the initial_value parameter.
                 write_hw_counter(idx, initial_value);
             }
-
-            if ((start_flags >> 1) & 1 == 1) { // SBI_PMU_START_FLAG_INIT_SNAPSHOT: Initialize the given counters from shared memory if available.
-
-            }
-
         }
     }
 
-    // Clear inhibit bits to start counters
-    uint64 curr = read_mcountinhibit();
-    curr &= ~inhibit_mask;
-    write_mcountinhibit(curr);
+    // Start counters
+    write_mcountinhibit(curr_mcountinhibit);
 
     return ret;
 }
@@ -132,33 +189,33 @@ struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter
  */
 struct SbiRet sbi_pmu_counter_stop_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 stop_flags) {
 
-    if ((stop_flags >> 1) & 0b1 == 1) { // SBI_PMU_STOP_FLAG_TAKE_SNAPSHOT: save a snapshot of the given counter's value in the shared memory if available.
-
-    }
-
     struct SbiRet ret = { .error = SBI_SUCCESS, .value = 0 };
 
-    uint64 inhibit_mask = 0;
+    if (stop_flags & SBI_PMU_STOP_RESERVED_MASK != 0UL) {
+        ret.error = SBI_ERR_INVALID_PARAM;
+        return ret;
+    }
+
+    uint64 curr_mcountinhibit = read_mcountinhibit();
+
     for (int bit = 0; bit < 64; bit++) {
-        if (counter_idx_mask & (1ULL << bit)) {
+        if (counter_idx_mask & (1UL << bit)) {
             uint64 idx = counter_idx_base + bit;
             if (idx < 3 || idx > 31) {
                 ret.error = SBI_ERR_INVALID_PARAM;
                 return ret;
             }
 
-            if (stop_flags & 0b1 == 1) { // SBI_PMU_STOP_FLAG_RESET: reset the counter to event mapping.
-                write_hw_event(idx, 0ULL);
-            }
+            // Set countinhibit bits to stop counters
+            curr_mcountinhibit |= (1UL << idx);
 
-            inhibit_mask |= (1ULL << idx);
+            if (stop_flags & 0b1 == 1) { // SBI_PMU_STOP_FLAG_RESET: reset the counter to event mapping.
+                write_hw_event(idx, 0UL);
+            }
         }
     }
 
-    /* Set inhibit bits to stop counters */
-    uint64 curr = read_mcountinhibit();
-    curr |= inhibit_mask;
-    write_mcountinhibit(curr);
+    write_mcountinhibit(curr_mcountinhibit);
     
     return ret;
 }
@@ -177,9 +234,8 @@ struct SbiRet sbi_pmu_counter_fw_read_impl(uint64 counter_idx) {
         return ret;
     }
 
-    uint64 val = read_hw_counter(counter_idx);
     ret.error = SBI_SUCCESS;
-    ret.value = val;
+    ret.value = read_hw_counter(counter_idx);
     return ret;
 }
 
@@ -233,7 +289,7 @@ struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem
  * We therefore use a switch-case to select the correct CSR based on the counter index.
  */
 
- inline uint64 read_hw_counter(uint64 idx) {
+uint64 read_hw_counter(uint64 idx) {
     uint64 value = 0;
     switch(idx) {
       case 3:  asm volatile ("csrr %0, mhpmcounter3" : "=r"(value)); break;
@@ -270,7 +326,7 @@ struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem
     return value;
 }
 
-inline void write_hw_counter(uint64 idx, uint64 value) {
+void write_hw_counter(uint64 idx, uint64 value) {
     switch(idx) {
       case 3:  asm volatile ("csrw mhpmcounter3, %0" :: "r"(value)); break;
       case 4:  asm volatile ("csrw mhpmcounter4, %0" :: "r"(value)); break;
@@ -305,7 +361,7 @@ inline void write_hw_counter(uint64 idx, uint64 value) {
     }
 }
 
-inline void write_hw_event(uint64 idx, uint64 value) {
+void write_hw_event(uint64 idx, uint64 value) {
     /* For the event registers, we assume the CSR number is 0x320 + idx.
        (e.g., mhpmevent3 is at 0x320+3 = 0x323.) */
     switch(idx) {
@@ -343,12 +399,12 @@ inline void write_hw_event(uint64 idx, uint64 value) {
 }
 
 /* Inline helpers for mcountinhibit CSR */
-inline uint64 read_mcountinhibit(void) {
+uint64 read_mcountinhibit(void) {
     uint64 val;
     asm volatile ("csrr %0, mcountinhibit" : "=r"(val));
     return val;
 }
-inline void write_mcountinhibit(uint64 val) {
+void write_mcountinhibit(uint64 val) {
     asm volatile ("csrw mcountinhibit, %0" :: "r"(val));
 }
 
