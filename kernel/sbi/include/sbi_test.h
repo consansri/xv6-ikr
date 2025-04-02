@@ -16,14 +16,14 @@ void sbi_info(void) {
     struct SbiRet impl_version = sbi_get_impl_version();
     printf("    implementation:     %d(v%d.%d)\n", impl_id.value, impl_version.value >> 24, impl_version.value & 0b111111111111111111111111);
 
-    struct SbiRet mvendorid = sbi_get_mvendorid();
-    printf("    mvendorid:          %d\n", mvendorid.value);
+    // struct SbiRet mvendorid = sbi_get_mvendorid();
+    // printf("    mvendorid:          %d\n", mvendorid.value);
 
-    struct SbiRet marchid = sbi_get_marchid();
-    printf("    marchid:            %d\n", marchid.value);
+    // struct SbiRet marchid = sbi_get_marchid();
+    // printf("    marchid:            %d\n", marchid.value);
 
-    struct SbiRet mimpid = sbi_get_mimpid();
-    printf("    mimpid:             %d\n\n", mimpid.value);
+    // struct SbiRet mimpid = sbi_get_mimpid();
+    // printf("    mimpid:             %d\n\n", mimpid.value);
     
     printf("    extensions:\n");
     // BASE
@@ -96,6 +96,79 @@ void sbi_info(void) {
 
 }
 
+uint64 sbi_pmu_test_start_counter(uint64 counter_base, uint64 counter_mask, uint64 event_idx) {
+
+    struct SbiRet ret;
+
+    printf("------------------------- SBI TEST PMU -------------------------\n");
+
+    printf("\n");
+    printf("     BASE: %d\n", counter_base);
+    printf("     MASK: %x\n", counter_mask);
+    printf("    EVENT: %x\n", event_idx);
+    printf("\n");
+
+    // Select
+    ret = sbi_pmu_counter_config_matching(counter_base, counter_mask, SBI_PMU_CFG_FLAG_AUTO_START | SBI_PMU_CFG_FLAG_CLEAR_VALUE, event_idx, 0UL);
+    uint64 counter_idx = ret.value;
+    if (ret.error == SBI_SUCCESS){
+        printf("    [Config] counter_idx = %d\n", counter_idx);
+    } else {
+        printf("    [Config] ERROR: %d (counter_idx = %d)\n", ret.error, counter_idx);
+        return 0;
+    }
+        
+    // Info
+    ret = sbi_pmu_counter_get_info(counter_idx);
+    uint64 info = ret.value;
+    if (ret.error == SBI_SUCCESS) {
+        printf("    [Info] addr = %x, width = %d, type = %d(0: hw, 1: fw)\n", info & 0xfffUL, (info >> 12) & 0b111111UL, info >> 63);
+    } else {
+        printf("    [Info] ERROR: %d\n", ret.error, counter_idx);
+        return 0;
+    }
+
+    // Start 
+    ret = sbi_pmu_counter_start(counter_idx, 0b1UL, SBI_PMU_START_SET_INIT_VALUE, 0UL);
+    if (ret.error == SBI_SUCCESS) {
+        printf("    [Start] selected counter_idx: %d\n", counter_idx);
+    } else {
+        printf("    [Start] ERROR: %d (counter_idx = %d)\n", ret.error, counter_idx);
+        return 0;
+    }
+
+    printf("vvvvvvvvvvvvvvvvvvvvvvvvvv measure %d vvvvvvvvvvvvvvvvvvvvvvvvvv\n", counter_idx);
+
+    return counter_idx;
+}
+
+void sbi_pmu_test_stop_counter(uint64 counter_idx) {
+
+    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^ measure %d ^^^^^^^^^^^^^^^^^^^^^^^^^^\n", counter_idx);
+
+    printf("\n");
+
+    struct SbiRet ret;
+    ret = sbi_pmu_counter_fw_read(counter_idx);
+    if (ret.error == SBI_SUCCESS) {
+        printf("    [Read] value: %d\n", ret.value);
+    } else {
+        printf("    [Read] ERROR: %d (counter_idx = %d)\n", ret.error, counter_idx);
+        return;
+    }
+
+    ret = sbi_pmu_counter_stop(counter_idx, 1UL, SBI_PMU_STOP_FLAG_RESET);
+    if (ret.error == SBI_SUCCESS) {
+        printf("    [Stop] \n", ret.value);
+    } else {
+        printf("    [Stop] ERROR: %d (counter_idx = %d)\n", ret.error, counter_idx);
+        return;
+    }
+
+    printf("------------------------- SBI TEST PMU -------------------------\n");
+
+}
+
 /* Test function for SBI PMU implementation */
 void sbi_pmu_test_suite(void)
 {
@@ -109,6 +182,7 @@ void sbi_pmu_test_suite(void)
 
     /* 1. Get the total number of PMU counters */
     ret = sbi_pmu_num_counters();
+    uint64 num_counters = ret.value;
     if (ret.error == SBI_SUCCESS)
         printf("[NUM COUNTERS] Available PMU counters: %d\n", ret.value);
     else

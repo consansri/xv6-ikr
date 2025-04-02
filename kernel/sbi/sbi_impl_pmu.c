@@ -35,6 +35,10 @@ struct SbiRet sbi_pmu_num_counters_impl(void) {
  */
 struct SbiRet sbi_pmu_counter_get_info_impl(uint64 counter_idx) {
 
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_counter_get_info_impl\n");
+    #endif
+
     struct SbiRet sbiret;
 
     if (counter_idx <= 31 && counter_idx >= 3){
@@ -79,6 +83,12 @@ struct SbiRet sbi_pmu_counter_get_info_impl(uint64 counter_idx) {
  */
 struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 config_flags, uint64 event_idx, uint64 event_data) {
 
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_counter_config_matching_impl\n");
+    #endif
+
+    //dump_hpm_state();
+
     struct SbiRet ret = { .error = SBI_SUCCESS, .value = 0 };
 
     // 1. Validation
@@ -97,7 +107,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
         return ret;
     }
 
-    uint64 selected_idx = 0xffffffffffffffffUL;
+    uint64 selected_idx = 0UL;
 
     // 2. Selection
     uint64 curr_mcountinhibit = read_mcountinhibit();
@@ -116,7 +126,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
                 if (((curr_mcountinhibit >> idx) & 1UL) == 0UL ) {
                     // Counter is currently in use
                     continue;
-                }                
+                }
             }
 
             // Select counter
@@ -126,8 +136,11 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
     }
 
     // 3. Configuration
-    if (selected_idx != 0xffffffffffffffffUL) {
+    if (selected_idx != 0UL) {
         ret.value = selected_idx;
+
+        printf("    old config: ");
+        dump_hpm(selected_idx);
 
         write_hw_event(selected_idx, event_idx);
 
@@ -139,7 +152,16 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
             curr_mcountinhibit &= ~(1UL << selected_idx);
             write_mcountinhibit(curr_mcountinhibit);
         }
+
+        printf("    new config (EVT=%x, FLAGS=%x)\n", event_idx, config_flags);
+        printf("    new config: ");
+        dump_hpm(selected_idx);
+
+    } else {
+        ret.error = SBI_ERR_NOT_SUPPORTED;
     }
+
+    //dump_hpm_state();
 
     return ret;
 }
@@ -151,12 +173,18 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
  */
 struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 start_flags, uint64 initial_value) {
 
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_counter_start_impl\n");
+    #endif
+
     struct SbiRet ret = { .error = SBI_SUCCESS, .value = 0 };
 
-    if (start_flags & SBI_PMU_START_RESERVED_MASK != 0UL) {
+    if ((start_flags & SBI_PMU_START_RESERVED_MASK) != 0UL) {
         ret.error = SBI_ERR_INVALID_PARAM;
         return ret;
     }
+
+    //dump_hpm_state();
 
     uint64 curr_mcountinhibit = read_mcountinhibit();
 
@@ -171,7 +199,7 @@ struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter
             // Clear inhibit bits to start counters
             curr_mcountinhibit &= ~(1UL << idx);
 
-            if (start_flags & SBI_PMU_START_SET_INIT_VALUE != 0UL) { // SBI_PMU_START_SET_INIT_VALUE: set the value of counters based on the initial_value parameter.
+            if ((start_flags & SBI_PMU_START_SET_INIT_VALUE) != 0UL) { // SBI_PMU_START_SET_INIT_VALUE: set the value of counters based on the initial_value parameter.
                 write_hw_counter(idx, initial_value);
             }
         }
@@ -179,6 +207,8 @@ struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter
 
     // Start counters
     write_mcountinhibit(curr_mcountinhibit);
+
+    //dump_hpm_state();
 
     return ret;
 }
@@ -189,9 +219,15 @@ struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter
  */
 struct SbiRet sbi_pmu_counter_stop_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 stop_flags) {
 
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_counter_stop_impl\n");
+    #endif
+
+    //dump_hpm_state();
+
     struct SbiRet ret = { .error = SBI_SUCCESS, .value = 0 };
 
-    if (stop_flags & SBI_PMU_STOP_RESERVED_MASK != 0UL) {
+    if ((stop_flags & SBI_PMU_STOP_RESERVED_MASK) != 0UL) {
         ret.error = SBI_ERR_INVALID_PARAM;
         return ret;
     }
@@ -203,19 +239,21 @@ struct SbiRet sbi_pmu_counter_stop_impl(uint64 counter_idx_base, uint64 counter_
             uint64 idx = counter_idx_base + bit;
             if (idx < 3 || idx > 31) {
                 ret.error = SBI_ERR_INVALID_PARAM;
-                return ret;
+                continue;
             }
 
             // Set countinhibit bits to stop counters
             curr_mcountinhibit |= (1UL << idx);
 
-            if (stop_flags & 0b1 == 1) { // SBI_PMU_STOP_FLAG_RESET: reset the counter to event mapping.
+            if ((stop_flags & SBI_PMU_STOP_FLAG_RESET) != 0UL) { // SBI_PMU_STOP_FLAG_RESET: reset the counter to event mapping.
                 write_hw_event(idx, 0UL);
             }
         }
     }
 
     write_mcountinhibit(curr_mcountinhibit);
+
+    //dump_hpm_state();
     
     return ret;
 }
@@ -225,6 +263,10 @@ struct SbiRet sbi_pmu_counter_stop_impl(uint64 counter_idx_base, uint64 counter_
  * The counter_idx must be between 3 and 31.
  */
 struct SbiRet sbi_pmu_counter_fw_read_impl(uint64 counter_idx) {
+
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_counter_fw_read_impl\n");
+    #endif
 
     struct SbiRet ret;
 
@@ -244,6 +286,11 @@ struct SbiRet sbi_pmu_counter_fw_read_impl(uint64 counter_idx) {
  */
 struct SbiRet sbi_pmu_counter_fw_read_hi_impl(uint64 counter_idx) {
 
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_counter_fw_read_hi_impl\n");
+    #endif
+
+
     struct SbiRet sbiret;
     sbiret.error = SBI_SUCCESS;
     sbiret.value = 0;
@@ -256,6 +303,10 @@ struct SbiRet sbi_pmu_counter_fw_read_hi_impl(uint64 counter_idx) {
  * Set the shared memory location for PMU snapshots.
  */
 struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem_phys_hi, uint64 flags) {
+
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_snapshot_set_shmem_impl\n");
+    #endif
 
     struct SbiRet sbiret;
     sbiret.error = SBI_SUCCESS;
@@ -290,7 +341,12 @@ struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem
  */
 
 uint64 read_hw_counter(uint64 idx) {
-    uint64 value = 0;
+
+    #ifdef SBI_PMU_DEBUG
+    printf("read_hw_counter(%d)\n", idx);
+    #endif
+
+    uint64 value = 0UL;
     switch(idx) {
       case 3:  asm volatile ("csrr %0, mhpmcounter3" : "=r"(value)); break;
       case 4:  asm volatile ("csrr %0, mhpmcounter4" : "=r"(value)); break;
@@ -326,7 +382,65 @@ uint64 read_hw_counter(uint64 idx) {
     return value;
 }
 
+uint64 read_hw_event(uint64 idx) {
+
+    #ifdef SBI_PMU_DEBUG
+    printf("read_hw_event(%d)\n", idx);
+    #endif
+
+    uint64 value = 0UL;
+    switch(idx) {
+      case 3:  asm volatile ("csrr %0, mhpmevent3" : "=r"(value)); break;
+      case 4:  asm volatile ("csrr %0, mhpmevent4" : "=r"(value)); break;
+      case 5:  asm volatile ("csrr %0, mhpmevent5" : "=r"(value)); break;
+      case 6:  asm volatile ("csrr %0, mhpmevent6" : "=r"(value)); break;
+      case 7:  asm volatile ("csrr %0, mhpmevent7" : "=r"(value)); break;
+      case 8:  asm volatile ("csrr %0, mhpmevent8" : "=r"(value)); break;
+      case 9:  asm volatile ("csrr %0, mhpmevent9" : "=r"(value)); break;
+      case 10: asm volatile ("csrr %0, mhpmevent10" : "=r"(value)); break;
+      case 11: asm volatile ("csrr %0, mhpmevent11" : "=r"(value)); break;
+      case 12: asm volatile ("csrr %0, mhpmevent12" : "=r"(value)); break;
+      case 13: asm volatile ("csrr %0, mhpmevent13" : "=r"(value)); break;
+      case 14: asm volatile ("csrr %0, mhpmevent14" : "=r"(value)); break;
+      case 15: asm volatile ("csrr %0, mhpmevent15" : "=r"(value)); break;
+      case 16: asm volatile ("csrr %0, mhpmevent16" : "=r"(value)); break;
+      case 17: asm volatile ("csrr %0, mhpmevent17" : "=r"(value)); break;
+      case 18: asm volatile ("csrr %0, mhpmevent18" : "=r"(value)); break;
+      case 19: asm volatile ("csrr %0, mhpmevent19" : "=r"(value)); break;
+      case 20: asm volatile ("csrr %0, mhpmevent20" : "=r"(value)); break;
+      case 21: asm volatile ("csrr %0, mhpmevent21" : "=r"(value)); break;
+      case 22: asm volatile ("csrr %0, mhpmevent22" : "=r"(value)); break;
+      case 23: asm volatile ("csrr %0, mhpmevent23" : "=r"(value)); break;
+      case 24: asm volatile ("csrr %0, mhpmevent24" : "=r"(value)); break;
+      case 25: asm volatile ("csrr %0, mhpmevent25" : "=r"(value)); break;
+      case 26: asm volatile ("csrr %0, mhpmevent26" : "=r"(value)); break;
+      case 27: asm volatile ("csrr %0, mhpmevent27" : "=r"(value)); break;
+      case 28: asm volatile ("csrr %0, mhpmevent28" : "=r"(value)); break;
+      case 29: asm volatile ("csrr %0, mhpmevent29" : "=r"(value)); break;
+      case 30: asm volatile ("csrr %0, mhpmevent30" : "=r"(value)); break;
+      case 31: asm volatile ("csrr %0, mhpmevent31" : "=r"(value)); break;
+      default: break;
+    }
+    return value;
+}
+
+uint64 read_mcountinhibit(void) {
+
+    #ifdef SBI_PMU_DEBUG
+    printf("read_mcountinhibit()\n");
+    #endif
+
+    uint64 value;
+    asm volatile ("csrr %0, mcountinhibit" : "=r"(value));
+    return value;
+}
+
 void write_hw_counter(uint64 idx, uint64 value) {
+
+    #ifdef SBI_PMU_DEBUG
+    printf("write_hw_counter(%d, %d)\n", idx, value);
+    #endif
+
     switch(idx) {
       case 3:  asm volatile ("csrw mhpmcounter3, %0" :: "r"(value)); break;
       case 4:  asm volatile ("csrw mhpmcounter4, %0" :: "r"(value)); break;
@@ -362,8 +476,11 @@ void write_hw_counter(uint64 idx, uint64 value) {
 }
 
 void write_hw_event(uint64 idx, uint64 value) {
-    /* For the event registers, we assume the CSR number is 0x320 + idx.
-       (e.g., mhpmevent3 is at 0x320+3 = 0x323.) */
+
+    #ifdef SBI_PMU_DEBUG
+    printf("write_hw_event(%d, %x)\n", idx, value);
+    #endif
+
     switch(idx) {
       case 3:  asm volatile ("csrw mhpmevent3, %0" :: "r"(value)); break;
       case 4:  asm volatile ("csrw mhpmevent4, %0" :: "r"(value)); break;
@@ -398,13 +515,49 @@ void write_hw_event(uint64 idx, uint64 value) {
     }
 }
 
-/* Inline helpers for mcountinhibit CSR */
-uint64 read_mcountinhibit(void) {
-    uint64 val;
-    asm volatile ("csrr %0, mcountinhibit" : "=r"(val));
-    return val;
+void write_mcountinhibit(uint64 value) {
+
+    #ifdef SBI_PMU_DEBUG
+    printf("write_mcountinhibit(%x)\n", value);
+    #endif
+
+    asm volatile ("csrw mcountinhibit, %0" :: "r"(value));
 }
-void write_mcountinhibit(uint64 val) {
-    asm volatile ("csrw mcountinhibit, %0" :: "r"(val));
+
+void dump_hpm(uint64 counter_idx) {
+    #ifdef SBI_PMU_DEBUG
+    printf("dump_hpm\n");
+    #endif
+
+    uint64 mcountinhibit = read_mcountinhibit();
+    uint64 counter_state = read_hw_counter(counter_idx);
+    uint64 event_state = read_hw_event(counter_idx);
+    
+    if (((mcountinhibit >> counter_idx) & 1UL) == 0UL)
+        printf("[DUMP] counting %d: [EVT: %x]: %d\n", counter_idx, event_state, counter_state);
+    else
+        printf("[DUMP]          %d: [EVT: %x]: %d\n", counter_idx, event_state, counter_state);
+
+
 }
+
+void dump_hpm_state(void) {
+
+    #ifdef SBI_PMU_DEBUG
+    printf("dump_hpm_state\n");
+    #endif
+
+    uint64 mcountinhibit = read_mcountinhibit();
+    uint64 counter_state, event_state;
+    for(uint64 i = 3; i < 32; i++) {
+        counter_state = read_hw_counter(i);
+        event_state = read_hw_event(i);
+        if (((mcountinhibit >> i) & 1UL) == 0UL)
+            printf("[DUMP] counting %d: [EVT: %x]: %d\n", i, event_state, counter_state);
+        else
+            printf("[DUMP]          %d: [EVT: %x]: %d\n", i, event_state, counter_state);
+    }
+}
+
+
 

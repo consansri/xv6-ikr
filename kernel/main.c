@@ -117,14 +117,22 @@ main(unsigned long hartid, unsigned long dtb_pa)
   printf("hart %d init done\n", hartid);
   #endif
 
+
+  // Stop all counters
+  sbi_pmu_counter_stop(3UL, 0b11111111111111111111111111111UL, SBI_PMU_STOP_FLAG_RESET);
+  // Start PMU Counter Test
+  uint64 counter_idx = sbi_pmu_test_start_counter(7UL, 0b1111UL, SBI_PMU_HW_INSTRUCTIONS);
+
   // Consti was here 03.02.2025
   sbi_info();
   
-  sbi_pmu_test_suite();
+  //sbi_pmu_test_suite();
 
-  sbi_pmu_test();
+  //sbi_pmu_test();
   
-  perf_init();
+  //perf_init();
+
+  sbi_pmu_test_stop_counter(counter_idx);
 
   // kernel -> user break
   printf("Kernel Startup finished.\n");

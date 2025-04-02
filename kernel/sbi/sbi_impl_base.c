@@ -34,58 +34,66 @@ struct SbiRet sbi_probe_extension_impl(uint64 extension_id) {
     switch(extension_id) {
         case 0x10: // BASE
             sbiret.value = 1;
-            return sbiret;
+            break;
 
         case 0x504D55: // PMU
             sbiret.value = 1;
-            return sbiret;
+            break;
 
         default:
             sbiret.value = 0;
-            return sbiret;
+            break;
     }
+
+    return sbiret;
 }
 
 struct SbiRet sbi_get_mvendorid_impl(void) {
-
-    struct SbiRet sbiret;
-    sbiret.error = SBI_SUCCESS;
+    uint64 mvendorid;
 
     asm volatile(
         "csrr %0, mvendorid"
         :
-        : "r" (sbiret.value)
+        : "r" (mvendorid)
     );
+
+    struct SbiRet sbiret;
+    sbiret.error = SBI_SUCCESS;
+    sbiret.value = mvendorid;
 
     return sbiret;
 }
 
 struct SbiRet sbi_get_marchid_impl(void) {
 
-    struct SbiRet sbiret;
-    sbiret.error = SBI_SUCCESS;
+    uint64 marchid;
 
     asm volatile(
         "csrr %0, marchid"
         :
-        : "r" (sbiret.value)
-        : "memory"
+        : "r" (marchid)
     );
+
+    struct SbiRet sbiret;
+    sbiret.error = SBI_SUCCESS;
+    sbiret.value = 0;
 
     return sbiret;
 }
 
 struct SbiRet sbi_get_mimpid_impl(void) {
 
-    struct SbiRet sbiret;
-    sbiret.error = SBI_SUCCESS;
+    uint64 mimpid;
 
     asm volatile(
         "csrr %0, mimpid"
         :
-        : "r" (sbiret.value)
-        : 
+        : "r" (mimpid)
     );
+
+    struct SbiRet sbiret;
+    sbiret.error = SBI_SUCCESS;
+    sbiret.value = mimpid;
 
     return sbiret;
 }

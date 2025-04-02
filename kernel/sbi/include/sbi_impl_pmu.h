@@ -3,6 +3,10 @@
 
 #include "sbi_impl.h"
 
+// DEBUG
+//#define SBI_PMU_DEBUG
+
+
 #define SBI_PMU_COUNTER_NUM         29
 #define SBI_PMU_COUNTER_WIDTH       64
 #define SBI_PMU_COUNTER_ADDR_U      0xc00
@@ -32,7 +36,25 @@
 
 // for FID #7
 
+// EVENTS
+// type  0 
+#define SBI_PMU_EVT_TYPE_0                  0
+#define SBI_PMU_HW_NO_EVENT                 ((SBI_PMU_EVT_TYPE_0 << 16) | 0)
+#define SBI_PMU_HW_CPU_CYCLES               ((SBI_PMU_EVT_TYPE_0 << 16) | 1)
+#define SBI_PMU_HW_INSTRUCTIONS             ((SBI_PMU_EVT_TYPE_0 << 16) | 2)
+#define SBI_PMU_HW_CACHE_REFERENCES         ((SBI_PMU_EVT_TYPE_0 << 16) | 3)
+#define SBI_PMU_HW_CACHE_MISSES             ((SBI_PMU_EVT_TYPE_0 << 16) | 4)
+#define SBI_PMU_HW_BRANCH_INSTRUCTIONS      ((SBI_PMU_EVT_TYPE_0 << 16) | 5)
+#define SBI_PMU_HW_BRANCH_MISSES            ((SBI_PMU_EVT_TYPE_0 << 16) | 6)
+#define SBI_PMU_HW_BUS_CYCLES               ((SBI_PMU_EVT_TYPE_0 << 16) | 7)
+#define SBI_PMU_HW_STALLED_CYCLES_FRONTEND  ((SBI_PMU_EVT_TYPE_0 << 16) | 8)
+#define SBI_PMU_HW_STALLED_CYCLES_BACKEND   ((SBI_PMU_EVT_TYPE_0 << 16) | 9)
+#define SBI_PMU_HW_REF_CPU_CYCLES           ((SBI_PMU_EVT_TYPE_0 << 16) | 10)
 
+
+// type  1
+
+// type 15
 
 
 // PMU Extension
@@ -64,11 +86,15 @@ struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem
  */
 
 uint64 read_hw_counter(uint64 idx);
+uint64 read_hw_event(uint64 idx);
+uint64 read_mcountinhibit(void);
 void write_hw_counter(uint64 idx, uint64 value);
 void write_hw_event(uint64 idx, uint64 value);
+void write_mcountinhibit(uint64 value);
 
-/* Inline helpers for mcountinhibit CSR */
-uint64 read_mcountinhibit(void);
-void write_mcountinhibit(uint64 val);
+
+/* For debugging */
+void dump_hpm(uint64 counter_idx);
+void dump_hpm_state(void);
 
 #endif
