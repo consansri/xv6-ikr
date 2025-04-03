@@ -38,24 +38,61 @@
 
 // EVENTS
 // type  0 
-#define SBI_PMU_EVT_TYPE_0                  0
-#define SBI_PMU_HW_NO_EVENT                 ((SBI_PMU_EVT_TYPE_0 << 16) | 0)
-#define SBI_PMU_HW_CPU_CYCLES               ((SBI_PMU_EVT_TYPE_0 << 16) | 1)
-#define SBI_PMU_HW_INSTRUCTIONS             ((SBI_PMU_EVT_TYPE_0 << 16) | 2)
-#define SBI_PMU_HW_CACHE_REFERENCES         ((SBI_PMU_EVT_TYPE_0 << 16) | 3)
-#define SBI_PMU_HW_CACHE_MISSES             ((SBI_PMU_EVT_TYPE_0 << 16) | 4)
-#define SBI_PMU_HW_BRANCH_INSTRUCTIONS      ((SBI_PMU_EVT_TYPE_0 << 16) | 5)
-#define SBI_PMU_HW_BRANCH_MISSES            ((SBI_PMU_EVT_TYPE_0 << 16) | 6)
-#define SBI_PMU_HW_BUS_CYCLES               ((SBI_PMU_EVT_TYPE_0 << 16) | 7)
-#define SBI_PMU_HW_STALLED_CYCLES_FRONTEND  ((SBI_PMU_EVT_TYPE_0 << 16) | 8)
-#define SBI_PMU_HW_STALLED_CYCLES_BACKEND   ((SBI_PMU_EVT_TYPE_0 << 16) | 9)
-#define SBI_PMU_HW_REF_CPU_CYCLES           ((SBI_PMU_EVT_TYPE_0 << 16) | 10)
-
+#define SBI_PMU_HW_NO_EVENT                 0
+#define SBI_PMU_HW_CPU_CYCLES               1
+#define SBI_PMU_HW_INSTRUCTIONS             2
+#define SBI_PMU_HW_CACHE_REFERENCES         3
+#define SBI_PMU_HW_CACHE_MISSES             4
+#define SBI_PMU_HW_BRANCH_INSTRUCTIONS      5
+#define SBI_PMU_HW_BRANCH_MISSES            6
+#define SBI_PMU_HW_BUS_CYCLES               7
+#define SBI_PMU_HW_STALLED_CYCLES_FRONTEND  8
+#define SBI_PMU_HW_STALLED_CYCLES_BACKEND   9
+#define SBI_PMU_HW_REF_CPU_CYCLES           10
 
 // type  1
+#define SBI_PMU_EVT_TYPE_1                  (1 << 16)
+// cache_id
+#define SBI_PMU_HW_CACHE_L1D                0
+#define SBI_PMU_HW_CACHE_L1I                1
+#define SBI_PMU_HW_CACHE_LL                 2
+#define SBI_PMU_HW_CACHE_DTLB               3
+#define SBI_PMU_HW_CACHE_ITLB               4
+#define SBI_PMU_HW_CACHE_BPU                5
+#define SBI_PMU_HW_CACHE_NODE               6
+// op_id
+#define SBI_PMU_HW_CACHE_OP_READ            0
+#define SBI_PMU_HW_CACHE_OP_WRITE           1
+#define SBI_PMU_HW_CACHE_OP_PREFETCH        2
+// result_id
+#define SBI_PMU_HW_CACHE_RESULT_ACCESS      0
+#define SBI_PMU_HW_CACHE_RESULT_MISS        1
 
 // type 15
-
+#define SBI_PMU_EVT_TYPE_1                      (15 << 16)
+#define SBI_PMU_FW_MISALIGNED_LOAD              0
+#define SBI_PMU_FW_MISALIGNED_STORE             1
+#define SBI_PMU_FW_ACCESS_LOAD                  2
+#define SBI_PMU_FW_ACCESS_STORE                 3
+#define SBI_PMU_FW_ILLEGAL_INSN                 4
+#define SBI_PMU_FW_SET_TIMER                    5
+#define SBI_PMU_FW_IPI_SENT                     6
+#define SBI_PMU_FW_IPI_RECEIVED                 7
+#define SBI_PMU_FW_FENCE_I_SENT                 8
+#define SBI_PMU_FW_FENCE_I_RECEIVED             9
+#define SBI_PMU_FW_SFENCE_VMA_SENT              10
+#define SBI_PMU_FW_SFENCE_VMA_RECEIVED          11
+#define SBI_PMU_FW_SFENCE_VMA_ASID_SENT         12
+#define SBI_PMU_FW_SFENCE_VMA_ASID_RECEIVED     13
+#define SBI_PMU_FW_HFENCE_GVMA_SENT             14
+#define SBI_PMU_FW_HFENCE_GVMA_RECEIVED         15
+#define SBI_PMU_FW_HFENCE_GVMA_VMID_SENT        16
+#define SBI_PMU_FW_HFENCE_GVMA_VMID_RECEIVED    17
+#define SBI_PMU_FW_HFENCE_VVMA_SENT             18
+#define SBI_PMU_FW_HFENCE_VVMA_RECEIVED         19
+#define SBI_PMU_FW_HFENCE_VVMA_ASID_SENT        20
+#define SBI_PMU_FW_HFENCE_VVMA_ASID_RECEIVED    21
+#define SBI_PMU_FW_PLATFORM                     65535
 
 // PMU Extension
 

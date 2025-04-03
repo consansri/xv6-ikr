@@ -18,7 +18,7 @@
 #include "include/flash.h"
 #include "include/uart.h"
 #include "include/perf.h"
-#include "sbi/include/sbi_test.h"
+#include "sbi/include/sbi_tools.h"
 #include <stdbool.h>
 
 static inline void inithartid(unsigned long hartid) {
@@ -117,22 +117,12 @@ main(unsigned long hartid, unsigned long dtb_pa)
   printf("hart %d init done\n", hartid);
   #endif
 
-
-  // Stop all counters
-  sbi_pmu_counter_stop(3UL, 0b11111111111111111111111111111UL, SBI_PMU_STOP_FLAG_RESET);
-  // Start PMU Counter Test
-  uint64 counter_idx = sbi_pmu_test_start_counter(7UL, 0b1111UL, SBI_PMU_HW_INSTRUCTIONS);
-
-  // Consti was here 03.02.2025
   sbi_info();
-  
-  //sbi_pmu_test_suite();
 
-  //sbi_pmu_test();
-  
-  //perf_init();
+  sbi_test_pmu();
 
-  sbi_pmu_test_stop_counter(counter_idx);
+
+  
 
   // kernel -> user break
   printf("Kernel Startup finished.\n");

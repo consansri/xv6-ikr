@@ -1,8 +1,10 @@
-#ifndef __SBI_TEST__
-#define __SBI_TEST__
+#ifndef __SBI_TOOLS
+#define __SBI_TOOLS
 
 #include "sbi_call.h"
-#include "sbi_impl_pmu.h"
+#include "sbi_tools_pmu.h"
+#include <stdbool.h>
+
 
 void sbi_info(void) {
     printf("--------------------------- SBI Info ---------------------------\n");
@@ -96,82 +98,8 @@ void sbi_info(void) {
 
 }
 
-uint64 sbi_pmu_test_start_counter(uint64 counter_base, uint64 counter_mask, uint64 event_idx) {
-
-    struct SbiRet ret;
-
-    printf("------------------------- SBI TEST PMU -------------------------\n");
-
-    printf("\n");
-    printf("     BASE: %d\n", counter_base);
-    printf("     MASK: %x\n", counter_mask);
-    printf("    EVENT: %x\n", event_idx);
-    printf("\n");
-
-    // Select
-    ret = sbi_pmu_counter_config_matching(counter_base, counter_mask, SBI_PMU_CFG_FLAG_AUTO_START | SBI_PMU_CFG_FLAG_CLEAR_VALUE, event_idx, 0UL);
-    uint64 counter_idx = ret.value;
-    if (ret.error == SBI_SUCCESS){
-        printf("    [Config] counter_idx = %d\n", counter_idx);
-    } else {
-        printf("    [Config] ERROR: %d (counter_idx = %d)\n", ret.error, counter_idx);
-        return 0;
-    }
-        
-    // Info
-    ret = sbi_pmu_counter_get_info(counter_idx);
-    uint64 info = ret.value;
-    if (ret.error == SBI_SUCCESS) {
-        printf("    [Info] addr = %x, width = %d, type = %d(0: hw, 1: fw)\n", info & 0xfffUL, (info >> 12) & 0b111111UL, info >> 63);
-    } else {
-        printf("    [Info] ERROR: %d\n", ret.error, counter_idx);
-        return 0;
-    }
-
-    // Start 
-    ret = sbi_pmu_counter_start(counter_idx, 0b1UL, SBI_PMU_START_SET_INIT_VALUE, 0UL);
-    if (ret.error == SBI_SUCCESS) {
-        printf("    [Start] selected counter_idx: %d\n", counter_idx);
-    } else {
-        printf("    [Start] ERROR: %d (counter_idx = %d)\n", ret.error, counter_idx);
-        return 0;
-    }
-
-    printf("vvvvvvvvvvvvvvvvvvvvvvvvvv measure %d vvvvvvvvvvvvvvvvvvvvvvvvvv\n", counter_idx);
-
-    return counter_idx;
-}
-
-void sbi_pmu_test_stop_counter(uint64 counter_idx) {
-
-    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^ measure %d ^^^^^^^^^^^^^^^^^^^^^^^^^^\n", counter_idx);
-
-    printf("\n");
-
-    struct SbiRet ret;
-    ret = sbi_pmu_counter_fw_read(counter_idx);
-    if (ret.error == SBI_SUCCESS) {
-        printf("    [Read] value: %d\n", ret.value);
-    } else {
-        printf("    [Read] ERROR: %d (counter_idx = %d)\n", ret.error, counter_idx);
-        return;
-    }
-
-    ret = sbi_pmu_counter_stop(counter_idx, 1UL, SBI_PMU_STOP_FLAG_RESET);
-    if (ret.error == SBI_SUCCESS) {
-        printf("    [Stop] \n", ret.value);
-    } else {
-        printf("    [Stop] ERROR: %d (counter_idx = %d)\n", ret.error, counter_idx);
-        return;
-    }
-
-    printf("------------------------- SBI TEST PMU -------------------------\n");
-
-}
-
 /* Test function for SBI PMU implementation */
-void sbi_pmu_test_suite(void)
-{
+void sbi_pmu_test_suite(void) {
     struct SbiRet ret;
 
     printf("==========================================================\n");
@@ -332,5 +260,26 @@ void sbi_pmu_test(void) {
 
     printf("------------------------- SBI PMU Test -------------------------\n");
 }
+
+
+void sbi_test_pmu(void) {
+    // Stop all counters
+    sbi_pmu_counter_stop(3UL, 0b11111111111111111111111111111UL, SBI_PMU_STOP_FLAG_RESET);
+    
+    // Start PMU Counter Test
+    struct CounterSet set = sbi_pmu_test_start_counter(SBI_PMU_HW_CPU_CYCLES, SBI_PMU_HW_INSTRUCTIONS, SBI_PMU_HW_BRANCH_INSTRUCTIONS, SBI_PMU_HW_BRANCH_MISSES);
+    
+    if (!set.valid) {
+        return;
+    }
+
+    // Execute some programs to test
+    sbi_pmu_test_suite();
+    //sbi_pmu_test();
+
+    // Stop PMU Counter test
+    sbi_pmu_test_stop_counter(set);
+}
+
 
 #endif

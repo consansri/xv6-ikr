@@ -127,6 +127,12 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
                     // Counter is currently in use
                     continue;
                 }
+
+                
+                if ((SBI_PMU_HW_NO_EVENT != read_hw_event(idx))) {
+                    // Counter is currently in use
+                    continue;
+                }
             }
 
             // Select counter
@@ -137,12 +143,28 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
 
     // 3. Configuration
     if (selected_idx != 0UL) {
-        ret.value = selected_idx;
 
-        printf("    old config: ");
-        dump_hpm(selected_idx);
+        //printf("[SWITCH EVENT] from %x to %x\n", read_hw_event(selected_idx), event_idx);
+        
+        switch(event_idx >> 16){
+            case 0UL: write_hw_event(selected_idx, event_idx);
+                break;
 
-        write_hw_event(selected_idx, event_idx);
+            case 1UL: write_hw_event(selected_idx, event_idx);
+                break;
+
+            // case 2: write_hw_event(selected_idx, (event_idx << 48) | (event_data & 0xfffffffUL))
+            //     break;
+
+            case 15UL: write_hw_event(selected_idx, event_idx);
+                break;
+
+            default: 
+                ret.error = SBI_ERR_NOT_SUPPORTED;
+                return ret;
+        }
+
+        //printf("[SWITCHED EVENT] %x\n", read_hw_event(selected_idx));
 
         if ((config_flags & SBI_PMU_CFG_FLAG_CLEAR_VALUE) != 0UL) {
             write_hw_counter(selected_idx, 0UL);
@@ -153,10 +175,9 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
             write_mcountinhibit(curr_mcountinhibit);
         }
 
-        printf("    new config (EVT=%x, FLAGS=%x)\n", event_idx, config_flags);
-        printf("    new config: ");
-        dump_hpm(selected_idx);
+        //dump_hpm(selected_idx);
 
+        ret.value = selected_idx;
     } else {
         ret.error = SBI_ERR_NOT_SUPPORTED;
     }
@@ -246,7 +267,7 @@ struct SbiRet sbi_pmu_counter_stop_impl(uint64 counter_idx_base, uint64 counter_
             curr_mcountinhibit |= (1UL << idx);
 
             if ((stop_flags & SBI_PMU_STOP_FLAG_RESET) != 0UL) { // SBI_PMU_STOP_FLAG_RESET: reset the counter to event mapping.
-                write_hw_event(idx, 0UL);
+                write_hw_event(idx, SBI_PMU_HW_NO_EVENT);
             }
         }
     }
