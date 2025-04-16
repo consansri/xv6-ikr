@@ -6,23 +6,68 @@
 #include <stdbool.h>
 
 struct CounterSet {
-    bool valid;
-    uint64 counter_idx_0;
-    uint64 event_idx_0;
-    uint64 counter_idx_1;
-    uint64 event_idx_1;
-    uint64 counter_idx_2;
-    uint64 event_idx_2;
-    uint64 counter_idx_3;
-    uint64 event_idx_3;
+    bool    valid;
+    uint64  counter_idx_0;
+    uint64  event_idx_0;
+    bool    is_hw_0;
+    uint64  counter_idx_1;
+    uint64  event_idx_1;
+    bool    is_hw_1;
+    uint64  counter_idx_2;
+    uint64  event_idx_2;
+    bool    is_hw_2;
+    uint64  counter_idx_3;
+    uint64  event_idx_3;
+    bool    is_hw_3;
 };
+
+uint64 sbi_pmu_counter_hw_read(uint64 counter_idx) {
+    #ifdef SBI_PMU_DEBUG
+    printf("read_hw_counter(%d)\n", idx);
+    #endif
+
+    uint64 value = 0UL;
+    switch(counter_idx) {
+      case 0:  asm volatile ("csrr %0, hpmcounter3" : "=r"(value)); break;
+      case 1:  asm volatile ("csrr %0, hpmcounter4" : "=r"(value)); break;
+      case 2:  asm volatile ("csrr %0, hpmcounter5" : "=r"(value)); break;
+      case 3:  asm volatile ("csrr %0, hpmcounter6" : "=r"(value)); break;
+      case 4:  asm volatile ("csrr %0, hpmcounter7" : "=r"(value)); break;
+      case 5:  asm volatile ("csrr %0, hpmcounter8" : "=r"(value)); break;
+      case 6:  asm volatile ("csrr %0, hpmcounter9" : "=r"(value)); break;
+      case 7:  asm volatile ("csrr %0, hpmcounter10" : "=r"(value)); break;
+      case 8:  asm volatile ("csrr %0, hpmcounter11" : "=r"(value)); break;
+      case 9:  asm volatile ("csrr %0, hpmcounter12" : "=r"(value)); break;
+      case 10: asm volatile ("csrr %0, hpmcounter13" : "=r"(value)); break;
+      case 11: asm volatile ("csrr %0, hpmcounter14" : "=r"(value)); break;
+      case 12: asm volatile ("csrr %0, hpmcounter15" : "=r"(value)); break;
+      case 13: asm volatile ("csrr %0, hpmcounter16" : "=r"(value)); break;
+      case 14: asm volatile ("csrr %0, hpmcounter17" : "=r"(value)); break;
+      case 15: asm volatile ("csrr %0, hpmcounter18" : "=r"(value)); break;
+      case 16: asm volatile ("csrr %0, hpmcounter19" : "=r"(value)); break;
+      case 17: asm volatile ("csrr %0, hpmcounter20" : "=r"(value)); break;
+      case 18: asm volatile ("csrr %0, hpmcounter21" : "=r"(value)); break;
+      case 19: asm volatile ("csrr %0, hpmcounter22" : "=r"(value)); break;
+      case 20: asm volatile ("csrr %0, hpmcounter23" : "=r"(value)); break;
+      case 21: asm volatile ("csrr %0, hpmcounter24" : "=r"(value)); break;
+      case 22: asm volatile ("csrr %0, hpmcounter25" : "=r"(value)); break;
+      case 23: asm volatile ("csrr %0, hpmcounter26" : "=r"(value)); break;
+      case 24: asm volatile ("csrr %0, hpmcounter27" : "=r"(value)); break;
+      case 25: asm volatile ("csrr %0, hpmcounter28" : "=r"(value)); break;
+      case 26: asm volatile ("csrr %0, hpmcounter29" : "=r"(value)); break;
+      case 27: asm volatile ("csrr %0, hpmcounter30" : "=r"(value)); break;
+      case 28: asm volatile ("csrr %0, hpmcounter31" : "=r"(value)); break;
+      default: break;
+    }
+    return value;
+}
 
 void print_evt(uint64 event_idx) {
     uint64 event_idx_type = event_idx >> 16;
     uint64 event_idx_code = event_idx & 0xffffUL;
 
     switch(event_idx_type) {
-        case 0: // Type 0
+        case 0UL: // Type 0
             switch(event_idx_code) {
                 case SBI_PMU_HW_NO_EVENT:                   printf("SBI_PMU_HW_NO_EVENT"); break;
                 case SBI_PMU_HW_CPU_CYCLES:                 printf("SBI_PMU_HW_CPU_CYCLES"); break;
@@ -39,7 +84,7 @@ void print_evt(uint64 event_idx) {
             }
             break;
 
-        case 1: // Type 1
+        case 1UL: // Type 1
             uint64 cache_id     = event_idx_code >> 3;
             uint64 op_id        = (event_idx_code >> 1) & 0b11UL;
             uint64 result_id    = event_idx_code & 1UL;
@@ -73,11 +118,11 @@ void print_evt(uint64 event_idx) {
 
             break;
 
-        case 2: // Type 2
+        case 2UL: // Type 2
             printf("SBI_PMU_HW_RAW(not specified)");
             break;
 
-        case 15: // Type 15
+        case 15UL: // Type 15
             switch(event_idx_code) {
                 case SBI_PMU_FW_MISALIGNED_LOAD:            printf("SBI_PMU_FW_MISALIGNED_LOAD"); break;
                 case SBI_PMU_FW_MISALIGNED_STORE:           printf("SBI_PMU_FW_MISALIGNED_STORE"); break;
@@ -122,9 +167,14 @@ struct CounterSet sbi_pmu_test_start_counter(uint64 event_idx_0, uint64 event_id
     set.event_idx_1 = event_idx_1;
     set.event_idx_2 = event_idx_2;
     set.event_idx_3 = event_idx_3;
+    set.is_hw_0 = isHardwareEvt(set.event_idx_0);
+    set.is_hw_1 = isHardwareEvt(set.event_idx_1);
+    set.is_hw_2 = isHardwareEvt(set.event_idx_2);
+    set.is_hw_3 = isHardwareEvt(set.event_idx_3);
+    
 
     // choose from all counters
-    uint64 counter_base = 3UL;
+    uint64 counter_base = 0UL;
     uint64 counter_mask = 0x1fffffffUL;
 
     printf("------------------------- SBI TEST PMU -------------------------\n");
@@ -192,23 +242,48 @@ struct CounterSet sbi_pmu_test_start_counter(uint64 event_idx_0, uint64 event_id
     }
 
 
+    uint64 counter_value;
     printf("    EVENT : VALUE [IDX] CSR | WIDTH | HW(0)/FW(1)\n");
 
     printf("    ");
     print_evt(event_idx_0);
-    printf(" : %d [%d] %x | %d | %d\n", sbi_pmu_counter_fw_read(set.counter_idx_0).value, set.counter_idx_0, info_0 & 0xfffUL, (info_0 >> 12) & 0x3fUL, info_0 >> 63);
+    
+    if (set.is_hw_0) 
+        counter_value = sbi_pmu_counter_hw_read(set.counter_idx_0);
+    else 
+        counter_value = sbi_pmu_counter_fw_read(set.counter_idx_0).value;
+
+    printf(" : %d [%d] %x | %d | %d\n", counter_value, set.counter_idx_0, info_0 & 0xfffUL, (info_0 >> 12) & 0x3fUL, info_0 >> 63);
 
     printf("    ");
     print_evt(event_idx_1);
-    printf(" : %d [%d] %x | %d | %d\n", sbi_pmu_counter_fw_read(set.counter_idx_1).value, set.counter_idx_1, info_1 & 0xfffUL, (info_1 >> 12) & 0x3fUL, info_1 >> 63);
+    
+    if (set.is_hw_1) 
+        counter_value = sbi_pmu_counter_hw_read(set.counter_idx_1);
+    else 
+        counter_value = sbi_pmu_counter_fw_read(set.counter_idx_1).value;
+
+    printf(" : %d [%d] %x | %d | %d\n", counter_value, set.counter_idx_1, info_1 & 0xfffUL, (info_1 >> 12) & 0x3fUL, info_1 >> 63);
 
     printf("    ");
     print_evt(event_idx_2);
-    printf(" : %d [%d] %x | %d | %d\n", sbi_pmu_counter_fw_read(set.counter_idx_2).value, set.counter_idx_2, info_2 & 0xfffUL, (info_2 >> 12) & 0x3fUL, info_2 >> 63);
+    
+    if (set.is_hw_2) 
+        counter_value = sbi_pmu_counter_hw_read(set.counter_idx_2);
+    else 
+        counter_value = sbi_pmu_counter_fw_read(set.counter_idx_2).value;
+
+    printf(" : %d [%d] %x | %d | %d\n", counter_value, set.counter_idx_2, info_2 & 0xfffUL, (info_2 >> 12) & 0x3fUL, info_2 >> 63);
 
     printf("    ");
     print_evt(event_idx_3);
-    printf(" : %d [%d] %x | %d | %d\n", sbi_pmu_counter_fw_read(set.counter_idx_3).value, set.counter_idx_3, info_3 & 0xfffUL, (info_3 >> 12) & 0x3fUL, info_3 >> 63);
+    
+    if (set.is_hw_3) 
+        counter_value = sbi_pmu_counter_hw_read(set.counter_idx_3);
+    else 
+        counter_value = sbi_pmu_counter_fw_read(set.counter_idx_3).value;
+
+    printf(" : %d [%d] %x | %d | %d\n", counter_value, set.counter_idx_3, info_3 & 0xfffUL, (info_3 >> 12) & 0x3fUL, info_3 >> 63);
 
 
     // Start 
@@ -254,10 +329,17 @@ void sbi_pmu_test_stop_counter(struct CounterSet set) {
 
     printf("    EVENT : VALUE [IDX]\n");
     
-
+    
     printf("    ");
     print_evt(set.event_idx_0);
-    ret = sbi_pmu_counter_fw_read(set.counter_idx_0);
+
+    if (set.is_hw_0) {
+        ret.error = SBI_SUCCESS;
+        ret.value = sbi_pmu_counter_hw_read(set.counter_idx_0);
+    } else {
+        ret = sbi_pmu_counter_fw_read(set.counter_idx_0);
+    }
+    
     if (ret.error == SBI_SUCCESS) {    
         printf(" : %d [%d]\n", ret.value, set.counter_idx_0);
     } else {
@@ -266,7 +348,14 @@ void sbi_pmu_test_stop_counter(struct CounterSet set) {
     
     printf("    ");
     print_evt(set.event_idx_1);
-    ret = sbi_pmu_counter_fw_read(set.counter_idx_1);
+
+    if (set.is_hw_1) {
+        ret.error = SBI_SUCCESS;
+        ret.value = sbi_pmu_counter_hw_read(set.counter_idx_1);
+    } else {
+        ret = sbi_pmu_counter_fw_read(set.counter_idx_1);
+    }
+
     if (ret.error == SBI_SUCCESS) {    
         printf(" : %d [%d]\n", ret.value, set.counter_idx_1);
     } else {
@@ -275,7 +364,14 @@ void sbi_pmu_test_stop_counter(struct CounterSet set) {
 
     printf("    ");
     print_evt(set.event_idx_2);
-    ret = sbi_pmu_counter_fw_read(set.counter_idx_2);
+
+    if (set.is_hw_2) {
+        ret.error = SBI_SUCCESS;
+        ret.value = sbi_pmu_counter_hw_read(set.counter_idx_2);
+    } else {
+        ret = sbi_pmu_counter_fw_read(set.counter_idx_2);
+    }
+
     if (ret.error == SBI_SUCCESS) {    
         printf(" : %d [%d]\n", ret.value, set.counter_idx_2);
     } else {
@@ -284,7 +380,14 @@ void sbi_pmu_test_stop_counter(struct CounterSet set) {
 
     printf("    ");
     print_evt(set.event_idx_3);
-    ret = sbi_pmu_counter_fw_read(set.counter_idx_3);
+
+    if (set.is_hw_3) {
+        ret.error = SBI_SUCCESS;
+        ret.value = sbi_pmu_counter_hw_read(set.counter_idx_3);
+    } else {
+        ret = sbi_pmu_counter_fw_read(set.counter_idx_3);
+    }
+
     if (ret.error == SBI_SUCCESS) {    
         printf(" : %d [%d]\n", ret.value, set.counter_idx_3);
     } else {

@@ -2,14 +2,17 @@
 #define __SBI_IMPL_PMU_H
 
 #include "sbi_impl.h"
+#include <stdbool.h>
 
 // DEBUG
 //#define SBI_PMU_DEBUG
 
-
-#define SBI_PMU_COUNTER_NUM         29
-#define SBI_PMU_COUNTER_WIDTH       64
+#define SBI_PMU_COUNTER_NUM_HW      29UL
+#define SBI_PMU_COUNTER_NUM_FW      32UL
+#define SBI_PMU_COUNTER_NUM         (SBI_PMU_COUNTER_NUM_HW + SBI_PMU_COUNTER_NUM_FW)
+#define SBI_PMU_COUNTER_WIDTH       64UL
 #define SBI_PMU_COUNTER_ADDR_U      0xc00
+#define SBI_PMU_NO_COUNTER_IDX      0xFFFFFFFFFFFFFFFFUL
 
 // FLAGS
 
@@ -96,6 +99,13 @@
 
 // PMU Extension
 
+/*
+    counter_idx:
+
+    counter_idx in [0..<PMU_COUNTER_NUM_HW]: hardware counter
+    counter_idx in [PMU_COUNTER_NUM_HW..<PMU_COUNTER_NUM]: firmware counter
+*/
+
 /* 
  * We assume that hardware performance counters are available only for indices 3..31.
  * Their corresponding CSRs are:
@@ -114,6 +124,31 @@ struct SbiRet sbi_pmu_counter_fw_read_impl(uint64 counter_idx);
 struct SbiRet sbi_pmu_counter_fw_read_hi_impl(uint64 counter_idx);
 struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem_phys_hi, uint64 flags);
 
+// Machine Mode Firmware Counting
+void sbi_pmu_fw_count(uint64 event_idx);
+void sbi_pmu_fw_misaligned_load();
+void sbi_pmu_fw_misaligned_store();
+void sbi_pmu_fw_access_load();
+void sbi_pmu_fw_access_store();
+void sbi_pmu_fw_illegal_insn();
+void sbi_pmu_fw_set_timer();
+void sbi_pmu_fw_ipi_sent();
+void sbi_pmu_fw_ipi_received();
+void sbi_pmu_fw_fence_i_sent();
+void sbi_pmu_fw_fence_i_received();
+void sbi_pmu_fw_sfence_vma_sent();
+void sbi_pmu_fw_sfence_vma_received();
+void sbi_pmu_fw_sfence_vma_asid_sent();
+void sbi_pmu_fw_sfence_vma_asid_received();
+void sbi_pmu_fw_hfence_gvma_sent();
+void sbi_pmu_fw_hfence_gvma_received();
+void sbi_pmu_fw_hfence_gvma_vmid_sent();
+void sbi_pmu_fw_hfence_gvma_vmid_received();
+void sbi_pmu_fw_hfence_vvma_sent();
+void sbi_pmu_fw_hfence_vvma_received();
+void sbi_pmu_fw_hfence_vvma_asid_sent();
+void sbi_pmu_fw_hfence_vvma_asid_received();
+
 // Helper functions
 
 /* --- Assembly Helpers for CSR Access --- */
@@ -122,6 +157,9 @@ struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem
  * We therefore use a switch-case to select the correct CSR based on the counter index.
  */
 
+bool isHardwareIdx(uint64 idx);
+bool isHardwareEvt(uint64 evt);
+bool isValidIdx(uint64 idx);
 uint64 read_hw_counter(uint64 idx);
 uint64 read_hw_event(uint64 idx);
 uint64 read_mcountinhibit(void);

@@ -264,10 +264,10 @@ void sbi_pmu_test(void) {
 
 void sbi_test_pmu(void) {
     // Stop all counters
-    sbi_pmu_counter_stop(3UL, 0b11111111111111111111111111111UL, SBI_PMU_STOP_FLAG_RESET);
+    sbi_pmu_counter_stop(0UL, 0x1FFFFFFFFFFFFFFFUL, SBI_PMU_STOP_FLAG_RESET);
     
     // Start PMU Counter Test
-    struct CounterSet set = sbi_pmu_test_start_counter(SBI_PMU_HW_CPU_CYCLES, SBI_PMU_HW_INSTRUCTIONS, SBI_PMU_HW_BRANCH_INSTRUCTIONS, SBI_PMU_HW_BRANCH_MISSES);
+    struct CounterSet set = sbi_pmu_test_start_counter(SBI_PMU_HW_CPU_CYCLES, SBI_PMU_HW_CACHE_MISSES, SBI_PMU_HW_BRANCH_INSTRUCTIONS, SBI_PMU_HW_BRANCH_MISSES);
     
     if (!set.valid) {
         return;
