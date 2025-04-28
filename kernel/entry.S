@@ -60,7 +60,7 @@ clrloop:
     li      t0, 0x5
     sb      t0, 0(zero)
     
-
+    
     csrr    a0, mhartid
     mret
 
@@ -210,8 +210,6 @@ uart.out.wait:
 	pop		s1
 	pop		s0
 	ret
-
-
 
 #a0: reg
 #a1: length

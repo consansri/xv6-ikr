@@ -8,22 +8,67 @@
 volatile static uint64 firmware_counter[SBI_PMU_COUNTER_NUM_FW] = {0UL};
 volatile static uint64 firmware_event[SBI_PMU_COUNTER_NUM_FW] = {0UL};
 volatile static bool firmware_countin[SBI_PMU_COUNTER_NUM_FW] = {false};
+
 /* Shared memory snapshot support:
  *
  * We maintain global variables for the physical shared memory address (split into low and high parts)
  * and the snapshot flags. Additionally, our event_config[] array (indices 3..31) acts as our internal
  * mirror of each counter’s event configuration.
  */
-static uint64 snapshot_shmem_phys_lo = 0xFFFFFFFFFFFFFFFFUL;
-static uint64 snapshot_shmem_phys_hi = 0xFFFFFFFFFFFFFFFFUL;
-static uint64 snapshot_flags = 0;
-
+volatile static uint64 snapshot_shmem_phys_lo = 0xFFFFFFFFFFFFFFFFUL;
+volatile static uint64 snapshot_shmem_phys_hi = 0xFFFFFFFFFFFFFFFFUL;
+volatile static uint64 snapshot_flags = 0;
 
 /* Return the number of PMU counters available */
 struct SbiRet sbi_pmu_num_counters_impl(void) {
     struct SbiRet ret;
+    uint64 counter_num = 0;
+    uint64 saved_event = 0;
+
+    // Counters is available hw counter if a hw event can be configured for the counter.
+    for (uint64 i = 0; i < SBI_PMU_COUNTER_NUM_HW; i++) {
+        saved_event = read_hw_event(i);
+        
+        if (saved_event != 0) {
+            // Counter is already configured
+            counter_num++;
+            continue;
+        }
+
+        // Try to configure counter
+        write_hw_event(i, SBI_PMU_HW_CPU_CYCLES);
+        if (read_hw_event(i) != 0) {
+            // Counter was configured successfully
+            counter_num++;
+        }
+
+        // Reset to previous event
+        write_hw_event(i, saved_event);
+    }
+
+    // Counter is  available fw counter if a fw event can be configured for the counter.
+    for (uint64 i = 0; i < SBI_PMU_COUNTER_NUM_FW; i++) {
+        saved_event = firmware_event[i];
+
+        if (saved_event != 0){
+            // Counter is already configured
+            counter_num++;
+            continue;
+        }
+
+        // Try to configure counter
+        firmware_event[i] = SBI_PMU_FW_ACCESS_LOAD;
+        if (firmware_event[i] != 0) {
+            // Counter was configured successfully
+            counter_num++;
+        }
+
+        // Reset to previous event
+        firmware_event[i] = saved_event;
+    }
+
     ret.error = SBI_SUCCESS;
-    ret.value = SBI_PMU_COUNTER_NUM;
+    ret.value = counter_num;
     return ret;
 }
 
@@ -149,7 +194,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
             }
             
             if ((config_flags & SBI_PMU_CFG_FLAG_SKIP_MATCH) == 0UL) {
-                // Matching (assume availability if counter isn't running and has no event configured)
+                // Matching (assume availability if counter isn't running, has no event configured and is configurable)
                 
                 if (isHardware) {
                     // HARDWARE
@@ -163,6 +208,13 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
                     
                     if ((SBI_PMU_HW_NO_EVENT != read_hw_event(idx))) {
                         // Counter is currently in use
+                        continue;
+                    }
+
+                    // Try to configure
+                    write_hw_event(idx, SBI_PMU_HW_CPU_CYCLES);
+                    if (read_hw_event(idx) == 0) {
+                        // Counter is not configurable!
                         continue;
                     }
 
@@ -528,9 +580,9 @@ uint64 read_hw_counter(uint64 idx) {
       case 4:  asm volatile ("csrr %0, mhpmcounter7" : "=r"(value)); break;
       case 5:  asm volatile ("csrr %0, mhpmcounter8" : "=r"(value)); break;
       case 6:  asm volatile ("csrr %0, mhpmcounter9" : "=r"(value)); break;
-      case 7: asm volatile ("csrr %0, mhpmcounter10" : "=r"(value)); break;
-      case 8: asm volatile ("csrr %0, mhpmcounter11" : "=r"(value)); break;
-      case 9: asm volatile ("csrr %0, mhpmcounter12" : "=r"(value)); break;
+      case 7:  asm volatile ("csrr %0, mhpmcounter10" : "=r"(value)); break;
+      case 8:  asm volatile ("csrr %0, mhpmcounter11" : "=r"(value)); break;
+      case 9:  asm volatile ("csrr %0, mhpmcounter12" : "=r"(value)); break;
       case 10: asm volatile ("csrr %0, mhpmcounter13" : "=r"(value)); break;
       case 11: asm volatile ("csrr %0, mhpmcounter14" : "=r"(value)); break;
       case 12: asm volatile ("csrr %0, mhpmcounter15" : "=r"(value)); break;
@@ -570,9 +622,9 @@ uint64 read_hw_event(uint64 idx) {
       case 4:  asm volatile ("csrr %0, mhpmevent7" : "=r"(value)); break;
       case 5:  asm volatile ("csrr %0, mhpmevent8" : "=r"(value)); break;
       case 6:  asm volatile ("csrr %0, mhpmevent9" : "=r"(value)); break;
-      case 7: asm volatile ("csrr %0, mhpmevent10" : "=r"(value)); break;
-      case 8: asm volatile ("csrr %0, mhpmevent11" : "=r"(value)); break;
-      case 9: asm volatile ("csrr %0, mhpmevent12" : "=r"(value)); break;
+      case 7:  asm volatile ("csrr %0, mhpmevent10" : "=r"(value)); break;
+      case 8:  asm volatile ("csrr %0, mhpmevent11" : "=r"(value)); break;
+      case 9:  asm volatile ("csrr %0, mhpmevent12" : "=r"(value)); break;
       case 10: asm volatile ("csrr %0, mhpmevent13" : "=r"(value)); break;
       case 11: asm volatile ("csrr %0, mhpmevent14" : "=r"(value)); break;
       case 12: asm volatile ("csrr %0, mhpmevent15" : "=r"(value)); break;
@@ -608,43 +660,43 @@ uint64 read_mcountinhibit(void) {
     return value;
 }
 
-void write_hw_counter(uint64 idx, uint64 value) {
+void write_counter(uint64 idx, uint64 value) {
 
     #ifdef SBI_PMU_DEBUG
     printf("write_hw_counter(%d, %d)\n", idx, value);
     #endif
 
     switch(idx) {
-      case 0:  asm volatile ("csrw mhpmcounter3, %0" :: "r"(value)); break;
-      case 1:  asm volatile ("csrw mhpmcounter4, %0" :: "r"(value)); break;
-      case 2:  asm volatile ("csrw mhpmcounter5, %0" :: "r"(value)); break;
-      case 3:  asm volatile ("csrw mhpmcounter6, %0" :: "r"(value)); break;
-      case 4:  asm volatile ("csrw mhpmcounter7, %0" :: "r"(value)); break;
-      case 5:  asm volatile ("csrw mhpmcounter8, %0" :: "r"(value)); break;
-      case 6:  asm volatile ("csrw mhpmcounter9, %0" :: "r"(value)); break;
-      case 7: asm volatile ("csrw mhpmcounter10, %0" :: "r"(value)); break;
-      case 8: asm volatile ("csrw mhpmcounter11, %0" :: "r"(value)); break;
-      case 9: asm volatile ("csrw mhpmcounter12, %0" :: "r"(value)); break;
-      case 10: asm volatile ("csrw mhpmcounter13, %0" :: "r"(value)); break;
-      case 11: asm volatile ("csrw mhpmcounter14, %0" :: "r"(value)); break;
-      case 12: asm volatile ("csrw mhpmcounter15, %0" :: "r"(value)); break;
-      case 13: asm volatile ("csrw mhpmcounter16, %0" :: "r"(value)); break;
-      case 14: asm volatile ("csrw mhpmcounter17, %0" :: "r"(value)); break;
-      case 15: asm volatile ("csrw mhpmcounter18, %0" :: "r"(value)); break;
-      case 16: asm volatile ("csrw mhpmcounter19, %0" :: "r"(value)); break;
-      case 17: asm volatile ("csrw mhpmcounter20, %0" :: "r"(value)); break;
-      case 18: asm volatile ("csrw mhpmcounter21, %0" :: "r"(value)); break;
-      case 19: asm volatile ("csrw mhpmcounter22, %0" :: "r"(value)); break;
-      case 20: asm volatile ("csrw mhpmcounter23, %0" :: "r"(value)); break;
-      case 21: asm volatile ("csrw mhpmcounter24, %0" :: "r"(value)); break;
-      case 22: asm volatile ("csrw mhpmcounter25, %0" :: "r"(value)); break;
-      case 23: asm volatile ("csrw mhpmcounter26, %0" :: "r"(value)); break;
-      case 24: asm volatile ("csrw mhpmcounter27, %0" :: "r"(value)); break;
-      case 25: asm volatile ("csrw mhpmcounter28, %0" :: "r"(value)); break;
-      case 26: asm volatile ("csrw mhpmcounter29, %0" :: "r"(value)); break;
-      case 27: asm volatile ("csrw mhpmcounter30, %0" :: "r"(value)); break;
-      case 28: asm volatile ("csrw mhpmcounter31, %0" :: "r"(value)); break;
-      default: break;
+        case 0:  asm volatile ("csrw mhpmcounter3, %0" :: "r"(value)); break;
+        case 1:  asm volatile ("csrw mhpmcounter4, %0" :: "r"(value)); break;
+        case 2:  asm volatile ("csrw mhpmcounter5, %0" :: "r"(value)); break;
+        case 3:  asm volatile ("csrw mhpmcounter6, %0" :: "r"(value)); break;
+        case 4:  asm volatile ("csrw mhpmcounter7, %0" :: "r"(value)); break;
+        case 5:  asm volatile ("csrw mhpmcounter8, %0" :: "r"(value)); break;
+        case 6:  asm volatile ("csrw mhpmcounter9, %0" :: "r"(value)); break;
+        case 7:  asm volatile ("csrw mhpmcounter10, %0" :: "r"(value)); break;
+        case 8:  asm volatile ("csrw mhpmcounter11, %0" :: "r"(value)); break;
+        case 9:  asm volatile ("csrw mhpmcounter12, %0" :: "r"(value)); break;
+        case 10: asm volatile ("csrw mhpmcounter13, %0" :: "r"(value)); break;
+        case 11: asm volatile ("csrw mhpmcounter14, %0" :: "r"(value)); break;
+        case 12: asm volatile ("csrw mhpmcounter15, %0" :: "r"(value)); break;
+        case 13: asm volatile ("csrw mhpmcounter16, %0" :: "r"(value)); break;
+        case 14: asm volatile ("csrw mhpmcounter17, %0" :: "r"(value)); break;
+        case 15: asm volatile ("csrw mhpmcounter18, %0" :: "r"(value)); break;
+        case 16: asm volatile ("csrw mhpmcounter19, %0" :: "r"(value)); break;
+        case 17: asm volatile ("csrw mhpmcounter20, %0" :: "r"(value)); break;
+        case 18: asm volatile ("csrw mhpmcounter21, %0" :: "r"(value)); break;
+        case 19: asm volatile ("csrw mhpmcounter22, %0" :: "r"(value)); break;
+        case 20: asm volatile ("csrw mhpmcounter23, %0" :: "r"(value)); break;
+        case 21: asm volatile ("csrw mhpmcounter24, %0" :: "r"(value)); break;
+        case 22: asm volatile ("csrw mhpmcounter25, %0" :: "r"(value)); break;
+        case 23: asm volatile ("csrw mhpmcounter26, %0" :: "r"(value)); break;
+        case 24: asm volatile ("csrw mhpmcounter27, %0" :: "r"(value)); break;
+        case 25: asm volatile ("csrw mhpmcounter28, %0" :: "r"(value)); break;
+        case 26: asm volatile ("csrw mhpmcounter29, %0" :: "r"(value)); break;
+        case 27: asm volatile ("csrw mhpmcounter30, %0" :: "r"(value)); break;
+        case 28: asm volatile ("csrw mhpmcounter31, %0" :: "r"(value)); break;
+        default: break;
     }
 }
 
@@ -662,9 +714,9 @@ void write_hw_event(uint64 idx, uint64 value) {
       case 4:  asm volatile ("csrw mhpmevent7, %0" :: "r"(value)); break;
       case 5:  asm volatile ("csrw mhpmevent8, %0" :: "r"(value)); break;
       case 6:  asm volatile ("csrw mhpmevent9, %0" :: "r"(value)); break;
-      case 7: asm volatile ("csrw mhpmevent10, %0" :: "r"(value)); break;
-      case 8: asm volatile ("csrw mhpmevent11, %0" :: "r"(value)); break;
-      case 9: asm volatile ("csrw mhpmevent12, %0" :: "r"(value)); break;
+      case 7:  asm volatile ("csrw mhpmevent10, %0" :: "r"(value)); break;
+      case 8:  asm volatile ("csrw mhpmevent11, %0" :: "r"(value)); break;
+      case 9:  asm volatile ("csrw mhpmevent12, %0" :: "r"(value)); break;
       case 10: asm volatile ("csrw mhpmevent13, %0" :: "r"(value)); break;
       case 11: asm volatile ("csrw mhpmevent14, %0" :: "r"(value)); break;
       case 12: asm volatile ("csrw mhpmevent15, %0" :: "r"(value)); break;

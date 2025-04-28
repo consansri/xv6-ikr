@@ -27,6 +27,8 @@
 
 struct SbiRet handle_sbi(uint64 a0, uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5, uint64 fid, uint64 eid);
 
+void sbi_init();
+
 inline void print_sbi_info(void);
 
 #endif

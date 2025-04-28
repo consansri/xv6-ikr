@@ -199,14 +199,14 @@ UPROGS=\
 	$U/_strace\
 	$U/_mv\
 	$U/_perftest\
-	$U/_pmutest\
 	$U/_rx\
 	$U/_flush\
 	$U/_mpy\
 	$U/_mirror\
 	$U/_testauxser\
 	$U/_testfb\
-	$U/_grafx
+	$U/_grafx\
+	$U/_perf
 
 
 	# $U/_forktest\

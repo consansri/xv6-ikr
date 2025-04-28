@@ -1,6 +1,11 @@
 
 #include "include/sbi_impl.h"
 
+
+void sbi_init() {
+
+}
+
 /*
  * The handle_sbi function dispatches SBI calls based on the extension id (eid)
  * and function id (fid). Here we support both the BASE and PMU extensions.
