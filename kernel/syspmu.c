@@ -2,9 +2,9 @@
 #include "include/syspmu.h"
 #include "include/types.h"
 #include "include/riscv.h"
+#include "include/proc.h"
 #include "sbi/include/sbi_call.h"
 #include "include/vm.h" // For copyin, copyout
-
 
 // Helper function from previous implementation
 uint64 get_physical_mask(struct proc *p, uint64 handle_mask) {
