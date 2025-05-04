@@ -52,7 +52,7 @@ OBJS += \
   $K/uart.o \
   $K/debug.o \
   $K/video.o \
-  $K/perf.o \
+  $K/syspmu.o \
   $K/sbi/sbi_call.o \
   $K/sbi/sbi_impl.o \
   $K/sbi/sbi_impl_base.o \

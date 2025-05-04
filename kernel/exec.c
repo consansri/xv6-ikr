@@ -13,6 +13,7 @@
 #include "include/vm.h"
 #include "include/printf.h"
 #include "include/string.h"
+#include "include/syspmu.h"
 
 
 // Load a program segment into pagetable at virtual address va.
@@ -151,6 +152,11 @@ int exec(char *path, char **argv)
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
     
+  // Consti was here 04.05.2025
+  // --- Clean up PMU state for the old image ---
+  pmu_clear_config(p);
+  // --------------------------------------------
+
   // Commit to the user image.
   oldpagetable = p->pagetable;
   oldkpagetable = p->kpagetable;

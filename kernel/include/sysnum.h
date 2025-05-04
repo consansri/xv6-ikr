@@ -30,6 +30,8 @@
 #define SYS_rename      26
 #define SYS_flush_disk  27
 #define SYS_frame       28
-#define SYS_perf        29
+
+#define SYS_pmu_setup   29 // Consti was here - 04.05.2025
+#define SYS_pmu_control 30 // Consti was here - 04.05.2025
 
 #endif

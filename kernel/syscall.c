@@ -119,7 +119,8 @@ extern uint64 sys_sysinfo(void);
 extern uint64 sys_rename(void);
 extern uint64 sys_flushdisk(void);
 extern uint64 sys_frame(void);
-extern uint64 sys_perf(void);
+extern uint64 sys_pmu_setup(void);
+extern uint64 sys_pmu_control(void);
 
 static uint64 (*syscalls[])(void) = {
   [SYS_fork]        sys_fork,
@@ -150,7 +151,8 @@ static uint64 (*syscalls[])(void) = {
   [SYS_rename]      sys_rename,
   [SYS_flush_disk]  sys_flushdisk,
   [SYS_frame]       sys_frame,
-  [SYS_perf]        sys_perf,
+  [SYS_pmu_setup]   sys_pmu_setup,
+  [SYS_pmu_control] sys_pmu_control
 };
 
 static char *sysnames[] = {
@@ -182,7 +184,8 @@ static char *sysnames[] = {
   [SYS_rename]      "rename",
   [SYS_flush_disk]  "flushdisk",
   [SYS_frame]       "frame",
-  [SYS_perf]        "perf",
+  [SYS_pmu_setup]   "pmu_setup",
+  [SYS_pmu_control] "pmu_control",
 };
 
 void

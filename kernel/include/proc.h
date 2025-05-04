@@ -8,6 +8,7 @@
 #include "file.h"
 #include "fat32.h"
 #include "trap.h"
+#include "syspmu.h"
 
 
 // Saved registers for kernel context switches.
@@ -65,6 +66,13 @@ struct proc {
   struct dirent *cwd;          // Current directory
   char name[16];               // Process name (debugging)
   int tmask;                    // trace mask
+
+  // Consti was here 04.05.2025
+  // --- Add PMU State ---
+  struct pmu_mapping pmu_maps[MAX_PMU_HANDLES]; // Mappings for this process
+  uint64 pmu_config_success_mask; // Mask of handles successfully set by last pmu_setup
+  uint64 pmu_started_handles_mask; // Mask of *logical handles* currently started
+  // ---------------------
 };
 
 void            reg_info(void);

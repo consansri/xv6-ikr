@@ -14,6 +14,7 @@
 #include "include/file.h"
 #include "include/trap.h"
 #include "include/vm.h"
+#include "include/syspmu.h"
 #include <stdbool.h>
 
 struct cpu cpus[NCPU];
@@ -26,6 +27,7 @@ struct proc *initproc;
 int nextpid = 1;
 volatile int is_exit = 0;
 struct spinlock pid_lock;
+struct spinlock proc_lock; // Consti was here 04.05.2025
 
 extern void forkret(void);
 extern void swtch(struct context*, struct context*);
@@ -57,6 +59,7 @@ procinit(void)
   struct proc *p;
   
   initlock(&pid_lock, "nextpid");
+  initlock(&proc_lock, "proc_lock"); // Consti was here 04.05.2025
   for(p = procs; p < &procs[NPROC]; p++) {
       initlock(&p->lock, "proc");
 
@@ -154,6 +157,15 @@ found:
 
   p->kstack = VKSTACK;
 
+  // Consti was here 04.05.2025
+  // --- Initialize PMU State --- 
+  for(int i = 0; i < MAX_PMU_HANDLES; ++i) {
+    p->pmu_maps[i].valid = 0;
+  }
+  p->pmu_config_success_mask = 0;
+  p->pmu_started_handles_mask = 0;
+  // ----------------------------
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -162,7 +174,7 @@ found:
 
 
 
-  return p;
+  return p; // Return locked proc structure
 }
 
 // free a proc structure and the data hanging from it,
@@ -455,6 +467,10 @@ exit(int status)
   eput(p->cwd);
   p->cwd = 0;
 
+  // Consti was here 04.05.2025
+  // --- Clean up PMU state ---
+  pmu_clear_config(p);
+  // --------------------------
   
   // we might re-parent a child to init. we can't be precise about
   // waking up init, since we can't acquire its lock once we've
@@ -571,8 +587,11 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
     
+    acquire(&proc_lock); // Consti was here 04.05.2025
     for(p = procs; p < &procs[NPROC]; p++) {
-      push_off();
+      // push_off(); // Remove push_off/pop_off pair around the lock acquire/release! Consti was here 04.05.2025
+      
+      acquire(&p->lock); // Consti was here 04.05.2025
       if(p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
@@ -583,9 +602,63 @@ scheduler(void)
         //w_satp(MAKE_SATP(p->kpagetable, p->pid * 2 + 1));
         w_satp(MAKE_SATP(p->kpagetable, procnum(p) * 2 + 1));
 
+        
+        // --- PMU Start New Process Counters --- Consti was here 04.05.2025
+        uint64 start_mask = 0;
+        // Read PMU state while holding lock
+        if (p->pmu_started_handles_mask != 0) {
+          start_mask = get_physical_mask(p,p->pmu_started_handles_mask);
+        }
+
+        // Release locks *before* SBI call
+        release(&p->lock);
+        release(&proc_lock); // Interrupts should now be restored to 'on' state
+
+        // Call SBI with interrupts enabled and no locks held
+        if (start_mask != 0) {
+          start_physical_counters_with_reset(start_mask); // Ignore errors
+        }
+
+        // Re-acquire locks before switch
+        acquire(&proc_lock); // Disable interrupts
+        acquire(&p->lock);   // Keep disabled
+
+        // Paranoia check: Did the state change while locks were released?
+        // If p is no longer RUNNING (e.g., killed), skip the switch.
+        if (p->state != RUNNING) {
+          release(&p->lock);
+          // Don't need to stop counters as they weren't started for this state
+          continue; // Proceed to next process in the loop
+        }
+        // --------------------------------------
+
         // switch to kernel instance of runnable proc
+        // swtch assumes p->lock is held, interrupts are off
         swtch(&c->context, &p->context);
         // the kernel instance of this proc gave back control
+        // Return holding p->lock, interrupts off
+
+        // --- PMU Stop Old Process Counters --- Consti was here 04.05.2025
+        uint64 stop_mask = 0;
+        // Read PMU state while holding lock
+        if (p->pmu_started_handles_mask != 0) {
+          stop_mask = get_physical_mask(p, p->pmu_started_handles_mask);
+        }
+
+        // Release lock *before* SBI call
+        release(&p->lock); // Restore interrupt state
+
+        // Temporarily release proc_lock as well to ensure interrupts are enabled for SBI
+        release(&proc_lock);
+
+        // Call SBI with interrupts enabled and no locks held
+        if (stop_mask != 0) {
+          stop_physical_counters(stop_mask); // Ignore errors
+        }
+
+        // Re-aquire proc_lock to safely continue loop and modify shared state like c->proc
+        acquire(&proc_lock);
+        // -------------------------------------
 
         // if this processes exited, remove its entries from the tlbs
         if(is_exit){
@@ -600,10 +673,15 @@ scheduler(void)
         // It should have changed its p->state before coming back.
         c->proc = 0;
 
+        // release(&p->lock); // Already released
+
+      } else {
+        release(&p->lock); // Release lock if we didn't run the process! Consti was here 04.05.2025
       }
-      pop_off();
+      // pop_off(); // Remove push_off/pop_off pair
     }
-    
+    release(&proc_lock); // Release global lock (restore interrupt state)! Consti was here 04.05.2025
+
   }
 }
 
