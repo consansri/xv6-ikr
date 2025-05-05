@@ -50,7 +50,7 @@ static void handle_exception(uint64 mcause, uint64 mtval, struct TrapFrame *fram
 
     // --- Firmware Event Exceptions ---
     case CAUSE_ILLEGAL_INSTRUCTION:
-        #ifdef SBI_PMU_DEBUG
+        #ifdef SBI_TRAP_DEBUG
         printf("M-Trap: Illegal Instruction @ 0x%lx (mtval=0x%lx)\n", frame->mepc, mtval);
         #endif
         sbi_pmu_fw_illegal_insn(); // Count event
@@ -58,7 +58,7 @@ static void handle_exception(uint64 mcause, uint64 mtval, struct TrapFrame *fram
         break;
 
     case CAUSE_MISALIGNED_LOAD:
-        #ifdef SBI_PMU_DEBUG
+        #ifdef SBI_TRAP_DEBUG
         printf("M-Trap: Misaligned Load @ 0x%lx (mtval=0x%lx)\n", frame->mepc, mtval);
         #endif
         sbi_pmu_fw_misaligned_load();
@@ -66,7 +66,7 @@ static void handle_exception(uint64 mcause, uint64 mtval, struct TrapFrame *fram
         break;
 
     case CAUSE_LOAD_ACCESS:
-        #ifdef SBI_PMU_DEBUG
+        #ifdef SBI_TRAP_DEBUG
         printf("M-Trap: Load Access Fault @ 0x%lx (mtval=0x%lx)\n", frame->mepc, mtval);
         #endif
         sbi_pmu_fw_access_load();
@@ -74,7 +74,7 @@ static void handle_exception(uint64 mcause, uint64 mtval, struct TrapFrame *fram
         break;
 
     case CAUSE_MISALIGNED_STORE:
-        #ifdef SBI_PMU_DEBUG
+        #ifdef SBI_TRAP_DEBUG
         printf("M-Trap: Misaligned Store @ 0x%lx (mtval=0x%lx)\n", frame->mepc, mtval);
         #endif
         sbi_pmu_fw_misaligned_store();
@@ -82,7 +82,7 @@ static void handle_exception(uint64 mcause, uint64 mtval, struct TrapFrame *fram
         break;
 
     case CAUSE_STORE_ACCESS:
-        #ifdef SBI_PMU_DEBUG
+        #ifdef SBI_TRAP_DEBUG
         printf("M-Trap: Store Access Fault @ 0x%lx (mtval=0x%lx)\n", frame->mepc, mtval);
         #endif
         sbi_pmu_fw_access_store();

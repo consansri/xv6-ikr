@@ -4,7 +4,15 @@
     .equ        MIDELEG_VAL,        0b1000001000100000 #   s-timer, s-external
     # .equ        MEDELEG_VAL,        0b1011000100000000 #  all page faults and ecall from user mode go to xv6
     # .equ        MEDELEG_VAL,        0b1111111111111111 #  all exceptions get handled by xv6
-    .equ        MEDELEG_VAL,        0b1111110111111111 #  all exceptions get handled by xv6 but Environment calls from S-mode (Allowing SBI)
+    # --- Updated MEDELEG Value ---
+    # Delegate most exceptions to S-mode (xv6), EXCEPT:
+    # - S-mode ECALL (Bit 9): Traps to M-mode for SBI calls.
+    # - Illegal Instruction (Bit 2): Traps to M-mode for FW counting.
+    # - Misaligned Load (Bit 4): Traps to M-mode for FW counting.
+    # - Load Access Fault (Bit 5): Traps to M-mode for FW counting.
+    # - Misaligned Store (Bit 6): Traps to M-mode for FW counting.
+    # - Store Access Fault (Bit 7): Traps to M-mode for FW counting.
+    .equ        MEDELEG_VAL,        0b1111110100001011 # Bits 2,4,5,6,7,9 are 0
     .equ        MSTATUS_MPP_S,      (1 << 11) #"Supervisor Mode"
 
     #  --- TrapFrame Offsets (Must match struct TrapFrame in sbi_trap.h) ---
