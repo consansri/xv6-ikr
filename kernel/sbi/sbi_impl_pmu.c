@@ -172,6 +172,10 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
 
     uint64 selected_idx = SBI_PMU_NO_COUNTER_IDX;
 
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_counter_config_matching_impl -> valid\n");
+    #endif
+
     // 2. Selection
     uint64 curr_mcountinhibit = read_mcountinhibit();
     for (int bit = 0; bit < 64; bit++) {
@@ -234,20 +238,27 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
         }
     }
 
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_counter_config_matching_impl -> selected %d\n", selected_idx);
+    #endif
+
     // 3. Configuration
     if (selected_idx != SBI_PMU_NO_COUNTER_IDX) {
         
         switch(event_idx >> 16){
-            case 0UL: write_hw_event(selected_idx, event_idx);
+            case 0UL: 
+                write_hw_event(selected_idx, event_idx);
                 break;
 
-            case 1UL: write_hw_event(selected_idx, event_idx);
+            case 1UL: 
+                write_hw_event(selected_idx, event_idx);
                 break;
 
             // case 2: write_hw_event(selected_idx, (event_idx << 48) | (event_data & 0xfffffffUL))
             //     break;
 
-            case 15UL: firmware_event[selected_idx - SBI_PMU_COUNTER_NUM_HW] = event_idx;
+            case 15UL: 
+                firmware_event[selected_idx - SBI_PMU_COUNTER_NUM_HW] = event_idx;
                 break;
 
             default: 
@@ -279,6 +290,10 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
     } else {
         ret.error = SBI_ERR_NOT_SUPPORTED;
     }
+
+    #ifdef SBI_PMU_DEBUG
+    printf("sbi_pmu_counter_config_matching_impl -> configured\n");
+    #endif
 
     //dump_hpm_state();
 
@@ -660,7 +675,7 @@ uint64 read_mcountinhibit(void) {
     return value;
 }
 
-void write_counter(uint64 idx, uint64 value) {
+void write_hw_counter(uint64 idx, uint64 value) {
 
     #ifdef SBI_PMU_DEBUG
     printf("write_hw_counter(%d, %d)\n", idx, value);
@@ -738,6 +753,10 @@ void write_hw_event(uint64 idx, uint64 value) {
       case 28: asm volatile ("csrw mhpmevent31, %0" :: "r"(value)); break;
       default: break;
     }
+
+    #ifdef SBI_PMU_DEBUG
+    printf("write_hw_event -> finished\n");
+    #endif
 }
 
 void write_mcountinhibit(uint64 value) {

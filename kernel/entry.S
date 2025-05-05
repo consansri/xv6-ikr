@@ -1,5 +1,4 @@
 #include "include/memlayout.h"
-#include "sbi/include/sbi_trap.h"
 
     .equ        UART_BASE_ADDR,     0x8000000000000001
     .equ        MIDELEG_VAL,        0b1000001000100000 //  s-timer, s-external
@@ -9,19 +8,30 @@
     .equ        MSTATUS_MPP_S,      (1 << 11) #"Supervisor Mode"
 
     // --- TrapFrame Offsets (Must match struct TrapFrame in sbi_trap.h) ---
+    .equ        NREGS, 32
     .equ        TF_REG_OFFSET,      0
     .equ        TF_MSTATUS_OFFSET,  (NREGS * 8)
     .equ        TF_MEPC_OFFSET,     ((NREGS + 1) * 8)
-    .equ        TF_SIZE             ((NREGS + 2) * 8) // Total size of the frame
+    .equ        TF_SIZE,            ((NREGS + 2) * 8) // Total size of the frame
     
 // Macro for saving a register to the TrapFrame via current SP
 .macro SAVE_REG reg, index
-    sd  \reg, ((\index) * 8)(\sp) // Use sp as frame pointer temporarily
+    sd  \reg, ((\index) * 8)(sp) // Use sp as frame pointer temporarily
 .endm
 
 // Macro for loading a register from the TrapFrame via current SP
 .macro LOAD_REG reg, index
-    ld  \reg, ((\index) * 8)(\sp) // Use sp as frame pointer temporarily
+    ld  \reg, ((\index) * 8)(sp) // Use sp as frame pointer temporarily
+.endm
+
+.macro push reg
+    addi sp, sp, -8
+    sd \reg, 0(sp)
+.endm
+
+.macro pop reg
+    ld \reg, 0(sp)
+    addi sp, sp, 8
 .endm
 
     .section .text.entry
@@ -37,6 +47,10 @@ _start:
 
     la      t0, m_trap_vector
     csrw    mtvec, t0
+
+    # Init SBI Stack Pointer
+    la      t0, sbi_stack_top
+    csrw    mscratch, t0
 
     la      t0, super_entry
     csrw    mepc, t0

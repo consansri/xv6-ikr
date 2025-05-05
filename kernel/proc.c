@@ -27,7 +27,6 @@ struct proc *initproc;
 int nextpid = 1;
 volatile int is_exit = 0;
 struct spinlock pid_lock;
-struct spinlock proc_lock; // Consti was here 04.05.2025
 
 extern void forkret(void);
 extern void swtch(struct context*, struct context*);
@@ -35,6 +34,12 @@ static void wakeup1(struct proc *chan);
 static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
+
+// helps ensure that wakeups of wait()ing
+// parents are not lost. helps obey the
+// memory model when using p->parent.
+// must be acquired before any p->lock.
+struct spinlock wait_lock;
 
 void reg_info(void) {
   printf("register info: {\n");
@@ -59,7 +64,8 @@ procinit(void)
   struct proc *p;
   
   initlock(&pid_lock, "nextpid");
-  initlock(&proc_lock, "proc_lock"); // Consti was here 04.05.2025
+  initlock(&wait_lock, "wait_lock");
+  //initlock(&proc_lock, "proc_lock"); // Consti was here 04.05.2025
   for(p = procs; p < &procs[NPROC]; p++) {
       initlock(&p->lock, "proc");
 
@@ -89,13 +95,13 @@ struct cpu*
 mycpu(void) {
   int id = cpuid();
   struct cpu *c = &cpus[id];
-  
   return c;
 }
 
 // Return the current struct proc *, or zero if none.
 struct proc*
 myproc(void) {
+
   push_off();
   struct cpu *c = mycpu();
   struct proc *p = c->proc;
@@ -107,10 +113,10 @@ int
 allocpid() {
   int pid;
   
-  push_off();
+  acquire(&pid_lock);  
   pid = nextpid;
   nextpid = (nextpid + 1) % 30000;
-  pop_off();
+  release(&pid_lock);
 
   return pid;
 }
@@ -125,11 +131,12 @@ allocproc(void)
   struct proc *p;
 
   for(p = procs; p < &procs[NPROC]; p++) {
-    push_off();
+    acquire(&p->lock);
+    
     if(p->state == UNUSED) {
       goto found;
     } else {
-      pop_off();
+      release(&p->lock);
     }
   }
 
@@ -138,20 +145,19 @@ allocproc(void)
 found:
   p->pid = allocpid();
 
-
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == NULL){
-    pop_off();
+    freeproc(p);
+    release(&p->lock);
     return NULL;
   }
-
 
   // An empty user page table.
   // And an identical kernel page table for this proc.
   if ((p->pagetable = proc_pagetable(p)) == NULL ||
       (p->kpagetable = proc_kpagetable()) == NULL) {
     freeproc(p);
-    pop_off();
+    release(&p->lock);
     return NULL;
   }
 
@@ -171,8 +177,6 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
-
-
 
   return p; // Return locked proc structure
 }
@@ -338,7 +342,7 @@ userinit(void)
 
   p->tmask = 0;
 
-  pop_off();
+  release(&p->lock);
   #ifdef DEBUG
   printf("userinit\n");
   #endif
@@ -385,7 +389,7 @@ fork(void)
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, np->kpagetable, p->sz) < 0){
     freeproc(np);
-    pop_off();
+    release(&np->lock);
     return -1;
   }
   np->sz = p->sz;
@@ -411,15 +415,21 @@ fork(void)
 
   pid = np->pid;
 
-  np->state = RUNNABLE;
+  release(&np->lock);
+  
+  acquire(&wait_lock);
+  np->parent = p;
+  release(&wait_lock);
 
-  pop_off();
+  acquire(&np->lock);
+  np->state = RUNNABLE;
+  release(&np->lock);
 
   return pid;
 }
 
 // Pass p's abandoned children to init.
-// Caller must hold p->lock.
+// Caller must hold wait_lock.
 void
 reparent(struct proc *p)
 {
@@ -433,13 +443,12 @@ reparent(struct proc *p)
     if(pp->parent == p){
       // pp->parent can't change between the check and the acquire()
       // because only the parent changes it, and we're the parent.
-      push_off();
       pp->parent = initproc;
       // we should wake up init here, but that would require
       // initproc->lock, which would be a deadlock, since we hold
       // the lock on one of init's children (pp). this is why
       // exit() always wakes init (before acquiring any locks).
-      pop_off();
+      wakeup(initproc);
     }
   }
 }
@@ -472,41 +481,20 @@ exit(int status)
   pmu_clear_config(p);
   // --------------------------
   
-  // we might re-parent a child to init. we can't be precise about
-  // waking up init, since we can't acquire its lock once we've
-  // acquired any other proc lock. so wake up init whether that's
-  // necessary or not. init may miss this wakeup, but that seems
-  // harmless.
-  push_off();
-  wakeup1(initproc);
-  pop_off();
+  acquire(&wait_lock);
 
-  // grab a copy of p->parent, to ensure that we unlock the same
-  // parent we locked. in case our parent gives us away to init while
-  // we're waiting for the parent lock. we may then race with an
-  // exiting parent, but the result will be a harmless spurious wakeup
-  // to a dead or wrong process; proc structs are never re-allocated
-  // as anything else.
-  push_off();
-  struct proc *original_parent = p->parent;
-  pop_off();
-  
-  // we need the parent's lock in order to wake it up from wait().
-  // the parent-then-child rule says we have to lock it first.
-  push_off();
-
-  push_off();
-
-  // Give any children to init.
+  // Give any children to init
   reparent(p);
 
   // Parent might be sleeping in wait().
-  wakeup1(original_parent);
+  wakeup(p->parent);
+
+  acquire(&p->lock);
 
   p->xstate = status;
   p->state = ZOMBIE;
 
-  pop_off();
+  release(&wait_lock);
 
   // Jump into the scheduler, never to return.
 
@@ -526,7 +514,7 @@ wait(uint64 addr)
 
   // hold p->lock for the whole time to avoid lost
   // wakeups from a child's exit().
-  push_off();
+  acquire(&wait_lock);
 
   for(;;){
     // Scan through table looking for exited children.
@@ -538,28 +526,29 @@ wait(uint64 addr)
       if(np->parent == p){
         // np->parent can't change between the check and the acquire()
         // because only the parent changes it, and we're the parent.
-        push_off();
+        acquire(&np->lock);
+
         havekids = 1;
         if(np->state == ZOMBIE){
           // Found one.
           pid = np->pid;
           if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate, sizeof(np->xstate)) < 0) {
-            pop_off();
-            pop_off();
+            release(&np->lock);
+            release(&wait_lock);
             return -1;
           }
           freeproc(np);
-          pop_off();
-          pop_off();
+          release(&np->lock);
+          release(&wait_lock);
           return pid;
         }
-        pop_off();
+        release(&np->lock);
       }
     }
 
     // No point waiting if we don't have any children.
     if(!havekids || p->killed){
-      pop_off();
+      release(&wait_lock);
       return -1;
     }
     
@@ -587,11 +576,10 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
     
-    acquire(&proc_lock); // Consti was here 04.05.2025
+    int found = 0;
     for(p = procs; p < &procs[NPROC]; p++) {
-      // push_off(); // Remove push_off/pop_off pair around the lock acquire/release! Consti was here 04.05.2025
+      acquire(p->lock);      
       
-      acquire(&p->lock); // Consti was here 04.05.2025
       if(p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
@@ -599,6 +587,7 @@ scheduler(void)
         // printf("[scheduler]found runnable proc with pid: %d\n", p->pid);
         p->state = RUNNING;
         c->proc = p;
+        
         //w_satp(MAKE_SATP(p->kpagetable, p->pid * 2 + 1));
         w_satp(MAKE_SATP(p->kpagetable, procnum(p) * 2 + 1));
 
@@ -612,7 +601,6 @@ scheduler(void)
 
         // Release locks *before* SBI call
         release(&p->lock);
-        release(&proc_lock); // Interrupts should now be restored to 'on' state
 
         // Call SBI with interrupts enabled and no locks held
         if (start_mask != 0) {
@@ -620,7 +608,6 @@ scheduler(void)
         }
 
         // Re-acquire locks before switch
-        acquire(&proc_lock); // Disable interrupts
         acquire(&p->lock);   // Keep disabled
 
         // Paranoia check: Did the state change while locks were released?
@@ -648,16 +635,13 @@ scheduler(void)
         // Release lock *before* SBI call
         release(&p->lock); // Restore interrupt state
 
-        // Temporarily release proc_lock as well to ensure interrupts are enabled for SBI
-        release(&proc_lock);
-
         // Call SBI with interrupts enabled and no locks held
         if (stop_mask != 0) {
           stop_physical_counters(stop_mask); // Ignore errors
         }
 
         // Re-aquire proc_lock to safely continue loop and modify shared state like c->proc
-        acquire(&proc_lock);
+        acquire(&p->lock);
         // -------------------------------------
 
         // if this processes exited, remove its entries from the tlbs
@@ -672,16 +656,15 @@ scheduler(void)
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
-
-        // release(&p->lock); // Already released
-
-      } else {
-        release(&p->lock); // Release lock if we didn't run the process! Consti was here 04.05.2025
-      }
-      // pop_off(); // Remove push_off/pop_off pair
+        found = 1;
+      } 
+      release(&p->lock);
     }
-    release(&proc_lock); // Release global lock (restore interrupt state)! Consti was here 04.05.2025
-
+    if (found == 0) {
+      // nothing to run; stop running on this core until an interrupt.
+      intr_on();
+      asm volatile("wfi");
+    }
   }
 }
 
@@ -698,13 +681,13 @@ sched(int exit)
   int intena;
   struct proc *p = myproc();
 
-  if(!true)
+  if(!true) // Check lock is held holding(&p->lock)
     panic("sched p->lock");
-  if(mycpu()->noff != 1)
+  if((mycpu()->noff) <= 0) // Check interrupt nesting
     panic("sched locks");
-  if(p->state == RUNNING)
+  if(p->state == RUNNING) // Check state
     panic("sched running");
-  if(intr_get())
+  if(intr_get()) // Check interrupts disabled
     panic("sched interruptible");
 
   intena = mycpu()->intena;
@@ -722,10 +705,10 @@ void
 yield(void)
 {
   struct proc *p = myproc();
-  push_off();
+  acquire(&p->lock);
   p->state = RUNNABLE;
   sched(0);
-  pop_off();
+  release(&p->lock);
 }
 
 // A fork child's very first scheduling by scheduler()
@@ -737,7 +720,7 @@ forkret(void)
   static int fat_ready = 0;
 
   // Still holding p->lock from scheduler.
-  pop_off();
+  release(&myproc()->lock);
 
   if (fat_ready == 0) {
     // File system initialization must be run in the context of a
@@ -766,8 +749,8 @@ sleep(void *chan, struct spinlock *lk)
   // (wakeup locks p->lock),
   // so it's okay to release lk.
   if(lk != &p->lock){  //DOC: sleeplock0
-    push_off();  //DOC: sleeplock1
-    pop_off();
+    acquire(&p->lock); //DOC: sleeplock1
+    release(lk);
   }
 
   // Go to sleep.
@@ -781,8 +764,8 @@ sleep(void *chan, struct spinlock *lk)
 
   // Reacquire original lock.
   if(lk != &p->lock){
-    pop_off();
-    push_off();
+    release(&p->lock);
+    acquire(lk);
   }
 }
 
@@ -794,11 +777,11 @@ wakeup(void *chan)
   struct proc *p;
 
   for(p = procs; p < &procs[NPROC]; p++) {
-    push_off();
+    acquire(&p->lock);
     if(p->state == SLEEPING && p->chan == chan) {
       p->state = RUNNABLE;
     }
-    pop_off();
+    release(&p->lock);
   }
 }
 
@@ -823,7 +806,7 @@ kill(int pid)
   struct proc *p;
 
   for(p = procs; p < &procs[NPROC]; p++){
-    push_off();
+    acquire(&p->lock);
     if(p->pid == pid){
       p->killed = 1;
       if(p->state == SLEEPING){
@@ -831,13 +814,11 @@ kill(int pid)
         p->state = RUNNABLE;
       }
 
-      pop_off();
+      release(&p->lock);
       return 0;
     }
-    pop_off();
+    release(&p->lock);
   }
-
-
 
   return -1;
 }

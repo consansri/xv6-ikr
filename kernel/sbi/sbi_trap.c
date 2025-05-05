@@ -17,7 +17,7 @@ extern void panic_from_c(void);
 void machine_trap_handler(uint64 mcause, uint64 mtval, struct TrapFrame *frame) {
     // Check if it's an interrupt or an exception
     if (mcause & MCAUSE_INT_BIT) {
-        handle_interrupt(mcause, mtval, frame);
+        handle_interrupt(mcause, frame);
     } else {
         handle_exception(mcause, mtval, frame);
     }
@@ -101,7 +101,7 @@ static void handle_exception(uint64 mcause, uint64 mtval, struct TrapFrame *fram
     }
 }
 
-static void handle_interrupt(uint64 mcause, uint64 mtval, struct TrapFrame *frame) {
+static void handle_interrupt(uint64 mcause, struct TrapFrame *frame) {
     uint64 cause_code = mcause & 0x7FF;
 
     switch (cause_code) {

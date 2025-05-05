@@ -17,7 +17,6 @@
 #include "include/buf.h"
 #include "include/flash.h"
 #include "include/uart.h"
-#include "include/perf.h"
 #include "sbi/include/sbi_tools.h"
 #include <stdbool.h>
 

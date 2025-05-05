@@ -217,7 +217,9 @@ kerneltrap() {
   
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING) {
+    pop_off(); // Consti was here 05.05.2025
     yield();
+    push_off(); // Consti was here 05.05.2025
   }
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.

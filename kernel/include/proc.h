@@ -8,8 +8,7 @@
 #include "file.h"
 #include "fat32.h"
 #include "trap.h"
-#include "syspmu.h"
-
+#define MAX_PMU_HANDLES         8
 
 // Saved registers for kernel context switches.
 struct context {
@@ -42,6 +41,13 @@ struct cpu {
 extern struct cpu cpus[NCPU];
 
 enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+
+struct pmu_mapping {
+  int valid;
+  uint64 event_code;
+  uint64 flags;
+  uint64 counter_idx; // Physical counter index
+};
 
 // Per-process state
 struct proc {

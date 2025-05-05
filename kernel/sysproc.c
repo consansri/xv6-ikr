@@ -109,16 +109,20 @@ sys_sleep(void)
 
   if(argint(0, &n) < 0)
     return -1;
-  push_off();
+
+  // Acquire the lock *before* reading ticks and entering the loop
+  acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
     if(myproc()->killed){
-      pop_off();
+      release(&tickslock);
       return -1;
     }
     sleep(&ticks, &tickslock);
   }
-  pop_off();
+
+  // Release the lock when done sleeping
+  release(&tickslock);
   return 0;
 }
 

@@ -23,7 +23,7 @@ struct CounterSet {
 
 uint64 sbi_pmu_counter_hw_read(uint64 counter_idx) {
     #ifdef SBI_PMU_DEBUG
-    printf("read_hw_counter(%d)\n", idx);
+    printf("read_hw_counter(%d)\n", counter_idx);
     #endif
 
     uint64 value = 0UL;
