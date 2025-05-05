@@ -167,10 +167,10 @@ struct CounterSet sbi_pmu_test_start_counter(uint64 event_idx_0, uint64 event_id
     set.event_idx_1 = event_idx_1;
     set.event_idx_2 = event_idx_2;
     set.event_idx_3 = event_idx_3;
-    set.is_hw_0 = isHardwareEvt(set.event_idx_0);
-    set.is_hw_1 = isHardwareEvt(set.event_idx_1);
-    set.is_hw_2 = isHardwareEvt(set.event_idx_2);
-    set.is_hw_3 = isHardwareEvt(set.event_idx_3);
+    set.is_hw_0 = isHardwareEvent(set.event_idx_0);
+    set.is_hw_1 = isHardwareEvent(set.event_idx_1);
+    set.is_hw_2 = isHardwareEvent(set.event_idx_2);
+    set.is_hw_3 = isHardwareEvent(set.event_idx_3);
     
 
     // choose from all counters

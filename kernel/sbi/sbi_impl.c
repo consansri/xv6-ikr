@@ -1,9 +1,18 @@
 
 #include "include/sbi_impl.h"
 
-
+/*
+ * sbi_init()
+ * Main C initialization function for the SBI/M-mode firmware.
+ * Called once from entry.S after basic M-mode setup.
+ */
 void sbi_init() {
+    // Initialize SBI subsystems here.
 
+    // 1. Initialize the PMU extension (probes hardware counters)
+    sbi_pmu_init();
+
+    printf("SBI Initialization Complete.\n");    
 }
 
 /*

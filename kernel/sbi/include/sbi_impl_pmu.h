@@ -7,14 +7,18 @@
 // DEBUG
 //#define SBI_PMU_DEBUG
 
-#define SBI_PMU_COUNTER_NUM_HW      29UL
-#define SBI_PMU_COUNTER_NUM_FW      32UL
-#define SBI_PMU_COUNTER_NUM         (SBI_PMU_COUNTER_NUM_HW + SBI_PMU_COUNTER_NUM_FW)
-#define SBI_PMU_COUNTER_WIDTH       64UL
-#define SBI_PMU_COUNTER_ADDR_U      0xc00
-#define SBI_PMU_NO_COUNTER_IDX      0xFFFFFFFFFFFFFFFFUL
+// --- Configuration ---
+#define SBI_PMU_MAX_HW_COUNTERS     29UL // Maximum possible HW counters (mhpmcounter3 to mhpmcounter31)
+#define SBI_PMU_COUNTER_NUM_FW      16UL // Number of firmware counters
+// SBI_PMU_COUNTER_NUM is dynamic: actual_num_hw_counters + SBI_PMU_COUNTER_NUM_FW
+#define SBI_PMU_COUNTER_WIDTH       64UL // Assumed width of counters
+#define SBI_PMU_COUNTER_ADDR_U      0xc00 // Base user-mode CSR address (cycle) - Note: PMU spec uses 0xC03 for hpmcounter3 etc.
+#define SBI_PMU_HW_COUNTER_CSR_BASE 0xC03 // CSR base for mhpmcounter3
+#define SBI_PMU_HW_EVENT_CSR_BASE   0x323 // CSR base for mhpmevent3
+#define SBI_PMU_HW_COUNTER_IDX_BASE 3     // Hardware counter CSRs start at index 3
+#define SBI_PMU_NO_COUNTER_IDX      0xFFFFFFFFFFFFFFFFUL // Sentinel value for no counter found
 
-// FLAGS
+// --- FLAGS ---
 
 // for FID #2
 #define SBI_PMU_CFG_FLAG_SKIP_MATCH         (1UL << 0)
@@ -39,8 +43,8 @@
 
 // for FID #7
 
-// EVENTS
-// type  0 
+// --- EVENTS ---
+// (Type  0) Common Hardware Events
 #define SBI_PMU_HW_NO_EVENT                 0
 #define SBI_PMU_HW_CPU_CYCLES               1
 #define SBI_PMU_HW_INSTRUCTIONS             2
@@ -53,7 +57,7 @@
 #define SBI_PMU_HW_STALLED_CYCLES_BACKEND   9
 #define SBI_PMU_HW_REF_CPU_CYCLES           10
 
-// type  1
+// (Type  1) Hardware Cache Events
 #define SBI_PMU_EVT_TYPE_1                  (1 << 16)
 // cache_id
 #define SBI_PMU_HW_CACHE_L1D                0
@@ -71,50 +75,55 @@
 #define SBI_PMU_HW_CACHE_RESULT_ACCESS      0
 #define SBI_PMU_HW_CACHE_RESULT_MISS        1
 
-// type 15
-#define SBI_PMU_EVT_TYPE_1                      (15 << 16)
-#define SBI_PMU_FW_MISALIGNED_LOAD              0
-#define SBI_PMU_FW_MISALIGNED_STORE             1
-#define SBI_PMU_FW_ACCESS_LOAD                  2
-#define SBI_PMU_FW_ACCESS_STORE                 3
-#define SBI_PMU_FW_ILLEGAL_INSN                 4
-#define SBI_PMU_FW_SET_TIMER                    5
-#define SBI_PMU_FW_IPI_SENT                     6
-#define SBI_PMU_FW_IPI_RECEIVED                 7
-#define SBI_PMU_FW_FENCE_I_SENT                 8
-#define SBI_PMU_FW_FENCE_I_RECEIVED             9
-#define SBI_PMU_FW_SFENCE_VMA_SENT              10
-#define SBI_PMU_FW_SFENCE_VMA_RECEIVED          11
-#define SBI_PMU_FW_SFENCE_VMA_ASID_SENT         12
-#define SBI_PMU_FW_SFENCE_VMA_ASID_RECEIVED     13
-#define SBI_PMU_FW_HFENCE_GVMA_SENT             14
-#define SBI_PMU_FW_HFENCE_GVMA_RECEIVED         15
-#define SBI_PMU_FW_HFENCE_GVMA_VMID_SENT        16
-#define SBI_PMU_FW_HFENCE_GVMA_VMID_RECEIVED    17
-#define SBI_PMU_FW_HFENCE_VVMA_SENT             18
-#define SBI_PMU_FW_HFENCE_VVMA_RECEIVED         19
-#define SBI_PMU_FW_HFENCE_VVMA_ASID_SENT        20
-#define SBI_PMU_FW_HFENCE_VVMA_ASID_RECEIVED    21
-#define SBI_PMU_FW_PLATFORM                     65535
+#define SBI_PMU_HW_CACHE_EVENT(cahce, op, result) \
+    (SBI_PMU_EVT_TYPE_1 | (cache) | (op) | (result))
+
+// (Type 15) Firmware Events
+#define SBI_PMU_EVT_TYPE_15                     (15 << 16)
+#define SBI_PMU_FW_MISALIGNED_LOAD              (SBI_PMU_EVT_TYPE_15 | 0)
+#define SBI_PMU_FW_MISALIGNED_STORE             (SBI_PMU_EVT_TYPE_15 | 1)
+#define SBI_PMU_FW_ACCESS_LOAD                  (SBI_PMU_EVT_TYPE_15 | 2)
+#define SBI_PMU_FW_ACCESS_STORE                 (SBI_PMU_EVT_TYPE_15 | 3)
+#define SBI_PMU_FW_ILLEGAL_INSN                 (SBI_PMU_EVT_TYPE_15 | 4)
+#define SBI_PMU_FW_SET_TIMER                    (SBI_PMU_EVT_TYPE_15 | 5)
+#define SBI_PMU_FW_IPI_SENT                     (SBI_PMU_EVT_TYPE_15 | 6)
+#define SBI_PMU_FW_IPI_RECEIVED                 (SBI_PMU_EVT_TYPE_15 | 7)
+#define SBI_PMU_FW_FENCE_I_SENT                 (SBI_PMU_EVT_TYPE_15 | 8)
+#define SBI_PMU_FW_FENCE_I_RECEIVED             (SBI_PMU_EVT_TYPE_15 | 9)
+#define SBI_PMU_FW_SFENCE_VMA_SENT              (SBI_PMU_EVT_TYPE_15 | 10)
+#define SBI_PMU_FW_SFENCE_VMA_RECEIVED          (SBI_PMU_EVT_TYPE_15 | 11)
+#define SBI_PMU_FW_SFENCE_VMA_ASID_SENT         (SBI_PMU_EVT_TYPE_15 | 12)
+#define SBI_PMU_FW_SFENCE_VMA_ASID_RECEIVED     (SBI_PMU_EVT_TYPE_15 | 13)
+#define SBI_PMU_FW_HFENCE_GVMA_SENT             (SBI_PMU_EVT_TYPE_15 | 14)
+#define SBI_PMU_FW_HFENCE_GVMA_RECEIVED         (SBI_PMU_EVT_TYPE_15 | 15)
+#define SBI_PMU_FW_HFENCE_GVMA_VMID_SENT        (SBI_PMU_EVT_TYPE_15 | 16)
+#define SBI_PMU_FW_HFENCE_GVMA_VMID_RECEIVED    (SBI_PMU_EVT_TYPE_15 | 17)
+#define SBI_PMU_FW_HFENCE_VVMA_SENT             (SBI_PMU_EVT_TYPE_15 | 18)
+#define SBI_PMU_FW_HFENCE_VVMA_RECEIVED         (SBI_PMU_EVT_TYPE_15 | 19)
+#define SBI_PMU_FW_HFENCE_VVMA_ASID_SENT        (SBI_PMU_EVT_TYPE_15 | 20)
+#define SBI_PMU_FW_HFENCE_VVMA_ASID_RECEIVED    (SBI_PMU_EVT_TYPE_15 | 21)
+#define SBI_PMU_FW_PLATFORM                     (SBI_PMU_EVT_TYPE_15 | 65535)
 
 // PMU Extension
 
-/*
-    counter_idx:
+// --- Structures ---
 
-    counter_idx in [0..<PMU_COUNTER_NUM_HW]: hardware counter
-    counter_idx in [PMU_COUNTER_NUM_HW..<PMU_COUNTER_NUM]: firmware counter
-*/
+// Structure to hold the state of a single firmware counter
+struct FirmwareCounterState {
+    uint64 counter; // Current value
+    uint64 event;   // Event ID configured for this counter (0 if none)
+    bool active;    // True if the counter is currently counting
+};
 
-/* 
- * We assume that hardware performance counters are available only for indices 3..31.
- * Their corresponding CSRs are:
- *   - mhpmcounter: CSR = 0xC00 + index  (e.g. mhpmcounter3 = 0xC03)
- *   - mhpmevent:   CSR = 0x320 + index  (e.g. mhpmevent3   = 0x323)
- *
- * For indices outside [3,31] we return SBI_ERR_INVALID_PARAM.
+// --- SBI Initialization ---
+/**
+ * sbi_pmu_init()
+ * Probes hardware counters and initializes the PMU extension state.
+ * MUST be called once during SBI initialization before any other PMU functions.
  */
+void sbi_pmu_init(void);
 
+// --- SBI Function Implementations (Prototypes) ---
 struct SbiRet sbi_pmu_num_counters_impl(void);
 struct SbiRet sbi_pmu_counter_get_info_impl(uint64 counter_idx);
 struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 config_flags, uint64 event_idx, uint64 event_data);
@@ -124,8 +133,10 @@ struct SbiRet sbi_pmu_counter_fw_read_impl(uint64 counter_idx);
 struct SbiRet sbi_pmu_counter_fw_read_hi_impl(uint64 counter_idx);
 struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem_phys_hi, uint64 flags);
 
-// Machine Mode Firmware Counting
-void sbi_pmu_fw_count(uint64 event_idx);
+// --- Firmware Event Counting Functions ---
+// Specific event trigger functions (call sbi_pmu_fw_count)
+void sbi_pmu_fw_count(uint64 event_idx); // Central counting function
+
 void sbi_pmu_fw_misaligned_load();
 void sbi_pmu_fw_misaligned_store();
 void sbi_pmu_fw_access_load();
@@ -149,24 +160,25 @@ void sbi_pmu_fw_hfence_vvma_received();
 void sbi_pmu_fw_hfence_vvma_asid_sent();
 void sbi_pmu_fw_hfence_vvma_asid_received();
 
-// Helper functions
+// --- Helper functions ---
 
-/* --- Assembly Helpers for CSR Access --- */
-/*
- * Due to RISC-V requirements, the CSR number must be an immediate.
- * We therefore use a switch-case to select the correct CSR based on the counter index.
- */
+// Check counter index validity and type
+bool isHardwareCounterIdx(uint64 idx);  // Check if index corresponds to a hardware counter
+bool isFirmwareCounterIdx(uint64 idx);  // Check if index corresponds to a firmware counter
+bool isValidCounterIdx(uint64 idx);     // Check if index is within the total valid range
 
-bool isHardwareIdx(uint64 idx);
-bool isHardwareEvt(uint64 evt);
-bool isValidIdx(uint64 idx);
-uint64 read_hw_counter(uint64 idx);
-uint64 read_hw_event(uint64 idx);
+// Check event type
+bool isHardwareEvent(uint64 event_idx);
+bool isFirmwareEvent(uint64 event_idx);
+
+// Hardware CSR access helpers (using switch internally)
+uint64 read_hw_counter(uint64 hw_counter_csr_idx); // Takes CSR index (3+)
+uint64 read_hw_event_csr(uint64 hw_event_csr_idx); // Takes CSR index (3+)
+void write_hw_counter(uint64 hw_counter_csr_idx, uint64 value); // Takes CSR index (3+)
+void write_hw_event_csr(uint64 hw_event_csr_idx, uint64 value); // Takes CSR index (3+)
+
 uint64 read_mcountinhibit(void);
-void write_hw_counter(uint64 idx, uint64 value);
-void write_hw_event(uint64 idx, uint64 value);
 void write_mcountinhibit(uint64 value);
-
 
 /* For debugging */
 void dump_hpm(uint64 counter_idx);
