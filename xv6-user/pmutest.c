@@ -38,12 +38,12 @@ int main(void) {
 
     // Configure Handle 0 for Cycles
     config_mask |= (1L << 0); // Request handle 0
-    event_codes[0] = EVENT_CODE_CYCLE; // Defined in pmu.h, e.g., as 1
+    event_codes[0] = SBI_PMU_HW_CPU_CYCLES; // Defined in pmu.h, e.g., as 1
     flags[0] = 0; // Standard flags, kernel might define specifics (e.g., user/kernel mode)
 
     // Configure Handle 1 for Instructions Retired
     config_mask |= (1L << 1); // Request handle 1
-    event_codes[1] = EVENT_CODE_INSTRET; // Defined in pmu.h, e.g., as 2
+    event_codes[1] = SBI_PMU_HW_INSTRUCTIONS; // Defined in pmu.h, e.g., as 2
     flags[1] = 0; // Standard flags
 
     setup_ret = pmu_setup(config_mask, event_codes, flags);
