@@ -36,6 +36,10 @@ int rename(char *old, char *new);
 int flush_disk(void);
 uint64 frame(void);
 
+// Consti was here 06.05.2025
+uint64 pmu_setup(uint64 config_mask, uint64* event_codes, uint64* flags);
+uint64 pmu_control(int action, uint64 handle_mask, uint64* values_out);
+
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);

@@ -59,9 +59,7 @@ int start_physical_counters_with_reset(uint64 physical_mask) {
 
 
 // Syscall Implementation: pmu_setup
-uint64
-sys_pmu_setup(void)
-{
+uint64 sys_pmu_setup(void) {
     uint64 config_mask, user_event_codes_ptr, user_flags_ptr;
     struct proc *p = myproc();
     uint64 success_mask = 0;
@@ -153,9 +151,7 @@ setup_cleanup:
 
 
 // Syscall Implementation: pmu_control
-uint64
-sys_pmu_control(void)
-{
+uint64 sys_pmu_control(void) {
     int action;
     uint64 handle_mask, user_values_out_ptr;
     struct proc *p = myproc();

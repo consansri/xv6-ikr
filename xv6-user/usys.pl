@@ -43,3 +43,7 @@ entry("sysinfo");
 entry("rename");
 entry("flush_disk");
 entry("frame");
+
+# Consti was here 06.05.2025
+entry("pmu_setup");
+entry("pmu_control");

@@ -199,7 +199,6 @@ UPROGS=\
 	$U/_usertests\
 	$U/_strace\
 	$U/_mv\
-	$U/_perftest\
 	$U/_rx\
 	$U/_flush\
 	$U/_mpy\
@@ -207,9 +206,9 @@ UPROGS=\
 	$U/_testauxser\
 	$U/_testfb\
 	$U/_grafx\
-	$U/_perf
+	$U/_pmutest\
 
-
+	# $U/_perftest\
 	# $U/_forktest\
 	# $U/_ln\
 	# $U/_stressfs\

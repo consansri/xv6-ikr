@@ -22,4 +22,13 @@ int stop_physical_counters(uint64 physical_mask);
 // Uses the sbi_pmu_counter_start wrapper from sbi_call.h
 int start_physical_counters_with_reset(uint64 physical_mask);
 
+
+// Syscall Implementation: pmu_setup
+uint64 sys_pmu_setup(void);
+
+
+// Syscall Implementation: pmu_control
+uint64 sys_pmu_control(void);
+
+
 #endif
