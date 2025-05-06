@@ -4,6 +4,8 @@
 #include "../../include/types.h"
 #include "sbi_riscv.h"
 
+//#define SBI_TRAP_DEBUG
+
 // Define architecture register count (usually 32 for RV32/RV64)
 #define NREGS           32
 
