@@ -42,21 +42,21 @@ void sbi_pmu_init(void) {
         write_hw_event_csr(csr_idx, SBI_PMU_HW_CPU_CYCLES);
 
         // Check if write was successful (CSR exists and is writable)
-        if (read_hw_event_csr(csr_idx) == SBI_PMU_HW_CPU_CYCLES) {
+        if (read_hw_event_csr(csr_idx) != 0) {
             // Success! This counter exists. Increment count.
-            probed_hw_count++;
+            probed_hw_count += 1;
             // Restore original event config (might have been non-zero)
             write_hw_event_csr(csr_idx, saved_event);
         } else {
             // Failure. Assume this and subsequent counters don't exist.
             #ifdef SBI_PMU_DEBUG
-            printf("  Probe failed at HW index %lld (CSR %lld). Assuming %lld HW counters.\n",
+            printf("  Probe failed at HW index %d (CSR %d). Assuming %d HW counters.\n",
                    hw_idx, csr_idx, probed_hw_count);
             #endif
             break; // Stop probing
         }
     }
-
+    
     actual_num_hw_counters = probed_hw_count;
 
     // Initialize firmware counter states (already zeroed in .bss, but set event/active explicitly)
@@ -67,7 +67,7 @@ void sbi_pmu_init(void) {
     }
 
     #ifdef SBI_PMU_DEBUG
-    printf("sbi_pmu_init: Found %lld hardware counters. Total counters = %lld.\n",
+    printf("sbi_pmu_init: Found %d hardware counters. Total counters = %d.\n",
            actual_num_hw_counters, actual_num_hw_counters + SBI_PMU_COUNTER_NUM_FW);
     #endif
 }
@@ -98,7 +98,7 @@ struct SbiRet sbi_pmu_num_counters_impl(void) {
 struct SbiRet sbi_pmu_counter_get_info_impl(uint64 counter_idx) {
 
     #ifdef SBI_PMU_DEBUG
-    printf("sbi_pmu_counter_get_info_impl(SBI Idx=%lld)\n", counter_idx);
+    printf("sbi_pmu_counter_get_info_impl(SBI Idx=%d)\n", counter_idx);
     #endif
 
     if (!isValidCounterIdx(counter_idx)) {
@@ -146,8 +146,8 @@ struct SbiRet sbi_pmu_counter_get_info_impl(uint64 counter_idx) {
 struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 config_flags, uint64 event_idx, uint64 event_data) {
 
     #ifdef SBI_PMU_DEBUG
-    printf("sbi_pmu_counter_config_matching_impl(base SBI Idx=%lld, mask=0x%lx, flags=0x%lx, event=0x%lx)\n",
-           counter_idx_base, counter_idx_mask, config_flags, event_idx);
+    printf("sbi_pmu_counter_config_matching_impl(base SBI Idx=%d, mask=0x%x, flags=0x%x, event=0x%x) - HW Counters: %d\n",
+           counter_idx_base, counter_idx_mask, config_flags, event_idx, actual_num_hw_counters);
     #endif
 
     // --- Validation ---
@@ -157,7 +157,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
     // Validate reserved bits in config_flags: only lower 8 bits are allowed
     if (config_flags & SBI_PMU_CFG_RESERVED_MASK) {
         #ifdef SBI_PMU_DEBUG
-        printf("  Error: Reserved config flags set (0x%lx)\n", config_flags & SBI_PMU_CFG_RESERVED_MASK);
+        printf("  Error: Reserved config flags set (0x%x)\n", config_flags & SBI_PMU_CFG_RESERVED_MASK);
         #endif
         return (struct SbiRet){ .error = SBI_ERR_INVALID_PARAM, .value = 0 };
     }
@@ -165,7 +165,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
     // Base index must be a valid *starting* SBI index
     if (!isValidCounterIdx(counter_idx_base)) {
         #ifdef SBI_PMU_DEBUG
-        printf("  Error: Invalid base SBI index (%lld)\n", counter_idx_base);
+        printf("  Error: Invalid base SBI index (%d)\n", counter_idx_base);
         #endif
         return (struct SbiRet){ .error = SBI_ERR_INVALID_PARAM, .value = 0 };
     }
@@ -178,16 +178,26 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
     uint64 curr_mcountinhibit = read_mcountinhibit();
     for (int bit = 0; bit < 64; bit++) {
         if (!(counter_idx_mask & (1UL << bit))) {
+            #ifdef SBI_PMU_DEBUG
+            //printf("    SBI Idx %d isn't contained by mask\n", counter_idx_base + bit);
+            #endif
             continue; // Skip if not in mask
         }
 
         uint64 current_sbi_idx = counter_idx_base + bit;
         if (!isValidCounterIdx(current_sbi_idx)) {
+            #ifdef SBI_PMU_DEBUG
+            //printf("    SBI Idx %d isn't valid\n", current_sbi_idx);
+            #endif
             continue; // Skip if combined SBI index is out of range
         }
 
         // --- Check if counter type matches target event type ---
         if(target_is_hw) {
+            #ifdef SBI_PMU_DEBUG
+            printf("    Testing HW idx %d\n", current_sbi_idx);
+            #endif
+
             if (!isHardwareCounterIdx(current_sbi_idx)) continue; // Skip FW indices if target is HW
 
             // --- Hardware Counter Availability Check ---
@@ -198,15 +208,22 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
             if (!(config_flags & SBI_PMU_CFG_FLAG_SKIP_MATCH)) {
                 if (!is_inhibited || (current_event != SBI_PMU_HW_NO_EVENT)) {
                     #ifdef SBI_PMU_DEBUG
-                    //printf("    HW SBI Idx %lld (CSR %lld) unavailable (inhibited=%d, event=0x%lx)\n", current_sbi_idx, hw_csr_idx, !is_inhibited, current_event);
+                    printf("    HW SBI Idx %d (CSR %d) unavailable (inhibited=%d, event=0x%x)\n", current_sbi_idx, hw_csr_idx, !is_inhibited, current_event);
                     #endif
                     continue;
                 }
             }
+            #ifdef SBI_PMU_DEBUG
+            printf("    HW SBI Idx %d is valid\n", current_sbi_idx);
+            #endif
             selected_idx = current_sbi_idx; // Select this SBI index
             break;
 
         } else { // Target is Firmware
+            #ifdef SBI_PMU_DEBUG
+            printf("    Testing FW idx %d\n", current_sbi_idx);
+            #endif
+
             if (!isFirmwareCounterIdx(current_sbi_idx)) continue; // Skip HW indices if target is FW
 
             // --- Firmware Counter Availability Check ---
@@ -216,12 +233,16 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
 
             if (!(config_flags & SBI_PMU_CFG_FLAG_SKIP_MATCH)) {
                 if (is_active || (current_event != SBI_PMU_HW_NO_EVENT)) {
-                     #ifdef SBI_PMU_DEBUG
-                    //printf("    FW SBI Idx %lld unavailable (active=%d, event=0x%lx)\n", current_sbi_idx, is_active, current_event);
+                    #ifdef SBI_PMU_DEBUG
+                    printf("    FW SBI Idx %d unavailable (active=%d, event=0x%x)\n", current_sbi_idx, is_active, current_event);
                     #endif
                     continue;
                 }
             }
+
+            #ifdef SBI_PMU_DEBUG
+            printf("    FW SBI Idx %d is valid\n", current_sbi_idx);
+            #endif
             selected_idx = current_sbi_idx; // Select this SBI index
             break;
         }
@@ -230,7 +251,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
     // --- Configuration ---
     if (selected_idx == SBI_PMU_NO_COUNTER_IDX) {
         #ifdef SBI_PMU_DEBUG
-        printf("  Error: No suitable counter found in mask 0x%lx (base SBI Idx %lld)\n", counter_idx_mask, counter_idx_base);
+        printf("  Error: No suitable counter found in mask 0x%x (base SBI Idx %d)\n", counter_idx_mask, counter_idx_base);
         #endif
         if (config_flags & SBI_PMU_CFG_FLAG_SKIP_MATCH) {
              return (struct SbiRet){ .error = SBI_ERR_INVALID_PARAM, .value = 0 };
@@ -248,7 +269,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
              write_hw_event_csr(hw_csr_idx, event_idx);
         } else {
              #ifdef SBI_PMU_DEBUG
-             printf("  Error: Attempting to configure HW counter (SBI Idx %lld) with FW event (0x%lx)\n", selected_idx, event_idx);
+             printf("  Error: Attempting to configure HW counter (SBI Idx %d) with FW event (0x%x)\n", selected_idx, event_idx);
              #endif
              return (struct SbiRet){ .error = SBI_ERR_INVALID_PARAM, .value = 0 }; // Mismatched event type
         }
@@ -269,7 +290,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
             firmware_counters[fw_struct_idx].event = event_idx;
         } else {
              #ifdef SBI_PMU_DEBUG
-             printf("  Error: Attempting to configure FW counter (SBI Idx %lld) with HW event (0x%lx)\n", selected_idx, event_idx);
+             printf("  Error: Attempting to configure FW counter (SBI Idx %d) with HW event (0x%x)\n", selected_idx, event_idx);
              #endif
              return (struct SbiRet){ .error = SBI_ERR_INVALID_PARAM, .value = 0 }; // Mismatched event type
         }
@@ -285,7 +306,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
     }
 
     #ifdef SBI_PMU_DEBUG
-    printf("  Configuration successful for SBI index %lld\n", selected_idx);
+    printf("  Configuration successful for SBI index %d\n", selected_idx);
     #endif
 
     return (struct SbiRet){ .error = SBI_SUCCESS, .value = selected_idx };
@@ -302,7 +323,7 @@ struct SbiRet sbi_pmu_counter_config_matching_impl(uint64 counter_idx_base, uint
 struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 start_flags, uint64 initial_value) {
 
     #ifdef SBI_PMU_DEBUG
-    printf("sbi_pmu_counter_start_impl(base SBI Idx=%lld, mask=0x%lx, flags=0x%lx, init_val=%lld)\n",
+    printf("sbi_pmu_counter_start_impl(base SBI Idx=%d, mask=0x%x, flags=0x%x, init_val=%d)\n",
            counter_idx_base, counter_idx_mask, start_flags, initial_value);
     #endif
 
@@ -319,7 +340,7 @@ struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter
         uint64 current_sbi_idx = counter_idx_base + bit;
         if (!isValidCounterIdx(current_sbi_idx)) {
             #ifdef SBI_PMU_DEBUG
-            printf("  Warning: Invalid SBI index %lld in start mask ignored\n", current_sbi_idx);
+            printf("  Warning: Invalid SBI index %d in start mask ignored\n", current_sbi_idx);
             #endif
             continue;
         }
@@ -345,7 +366,7 @@ struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter
     }
 
     #ifdef SBI_PMU_DEBUG
-    printf("  mcountinhibit after start: 0x%lx\n", read_mcountinhibit());
+    printf("  mcountinhibit after start: 0x%x\n", read_mcountinhibit());
     #endif
 
     return (struct SbiRet){ .error = SBI_SUCCESS, .value = 0 };
@@ -361,7 +382,7 @@ struct SbiRet sbi_pmu_counter_start_impl(uint64 counter_idx_base, uint64 counter
 struct SbiRet sbi_pmu_counter_stop_impl(uint64 counter_idx_base, uint64 counter_idx_mask, uint64 stop_flags) {
 
     #ifdef SBI_PMU_DEBUG
-    printf("sbi_pmu_counter_stop_impl(base SBI Idx=%lld, mask=0x%lx, flags=0x%lx)\n",
+    printf("sbi_pmu_counter_stop_impl(base SBI Idx=%d, mask=0x%x, flags=0x%x)\n",
            counter_idx_base, counter_idx_mask, stop_flags);
     #endif
     
@@ -379,7 +400,7 @@ struct SbiRet sbi_pmu_counter_stop_impl(uint64 counter_idx_base, uint64 counter_
         uint64 current_sbi_idx = counter_idx_base + bit;
         if (!isValidCounterIdx(current_sbi_idx)) {
              #ifdef SBI_PMU_DEBUG
-             printf("  Warning: Invalid SBI index %lld in stop mask ignored\n", current_sbi_idx);
+             printf("  Warning: Invalid SBI index %d in stop mask ignored\n", current_sbi_idx);
              #endif
             continue;
         }
@@ -406,7 +427,7 @@ struct SbiRet sbi_pmu_counter_stop_impl(uint64 counter_idx_base, uint64 counter_
     }
 
     #ifdef SBI_PMU_DEBUG
-    // printf("  mcountinhibit after stop: 0x%lx\n", read_mcountinhibit());
+    // printf("  mcountinhibit after stop: 0x%x\n", read_mcountinhibit());
     // dump_hpm_state();
     #endif
 
@@ -419,7 +440,7 @@ struct SbiRet sbi_pmu_counter_stop_impl(uint64 counter_idx_base, uint64 counter_
  */
 struct SbiRet sbi_pmu_counter_fw_read_impl(uint64 counter_idx) {
     #ifdef SBI_PMU_DEBUG
-    // printf("sbi_pmu_counter_fw_read_impl(SBI Idx=%lld)\n", counter_idx);
+    // printf("sbi_pmu_counter_fw_read_impl(SBI Idx=%d)\n", counter_idx);
     #endif
 
     if (!isFirmwareCounterIdx(counter_idx)) { // Check if it's a valid FW SBI index
@@ -438,7 +459,7 @@ struct SbiRet sbi_pmu_counter_fw_read_impl(uint64 counter_idx) {
  */
 struct SbiRet sbi_pmu_counter_fw_read_hi_impl(uint64 counter_idx) {
     #ifdef SBI_PMU_DEBUG
-    // printf("sbi_pmu_counter_fw_read_hi_impl(SBI Idx=%lld)\n", counter_idx);
+    // printf("sbi_pmu_counter_fw_read_hi_impl(SBI Idx=%d)\n", counter_idx);
     #endif
 
     if (!isFirmwareCounterIdx(counter_idx)) { // Check if it's a valid FW SBI index
@@ -454,9 +475,8 @@ struct SbiRet sbi_pmu_counter_fw_read_hi_impl(uint64 counter_idx) {
  */
 struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem_phys_hi, uint64 flags) {
 
-    // (Implementation remains the same as previous version, including the critical TODO for address validation)
     #ifdef SBI_PMU_DEBUG
-    printf("sbi_pmu_snapshot_set_shmem_impl(lo=0x%lx, hi=0x%lx, flags=0x%lx)\n",
+    printf("sbi_pmu_snapshot_set_shmem_impl(lo=0x%x, hi=0x%x, flags=0x%x)\n",
            shmem_phys_lo, shmem_phys_hi, flags);
     #endif
 
@@ -477,7 +497,7 @@ struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem
     }
     if ((shmem_phys_lo & (4096 - 1)) != 0) {
          #ifdef SBI_PMU_DEBUG
-         printf("  Error: shmem_phys_lo (0x%lx) not 4 KiB aligned.\n", shmem_phys_lo);
+         printf("  Error: shmem_phys_lo (0x%x) not 4 KiB aligned.\n", shmem_phys_lo);
          #endif
         ret.error = SBI_ERR_INVALID_PARAM;
         return ret;
@@ -499,7 +519,7 @@ struct SbiRet sbi_pmu_snapshot_set_shmem_impl(uint64 shmem_phys_lo, uint64 shmem
     snapshot_flags = flags;
 
      #ifdef SBI_PMU_DEBUG
-     printf("  Snapshot memory set: base=0x%lx%016lx\n", snapshot_shmem_phys_hi, snapshot_shmem_phys_lo);
+     printf("  Snapshot memory set: base=0x%x%x\n", snapshot_shmem_phys_hi, snapshot_shmem_phys_lo);
      #endif
 
     return ret;
@@ -576,15 +596,6 @@ bool isFirmwareEvent(uint64 event_idx) {
 
  uint64 read_hw_counter(uint64 hw_counter_csr_idx) {
     uint64 value = 0;
-    // Check if the CSR index is within the range of *implemented* counters
-    if (hw_counter_csr_idx < SBI_PMU_HW_COUNTER_IDX_BASE ||
-        hw_counter_csr_idx >= (SBI_PMU_HW_COUNTER_IDX_BASE + actual_num_hw_counters)) {
-        #ifdef SBI_PMU_DEBUG
-        printf("Warning: read_hw_counter called for unimplemented CSR index %lld\n", hw_counter_csr_idx);
-        #endif
-        return 0; // Return 0 for unimplemented counters
-    }
-    // Switch statement remains the same (covering cases 3 to 31)
     switch(hw_counter_csr_idx) {
         case 3:  asm volatile ("csrr %0, mhpmcounter3" : "=r"(value)); break;
         case 4:  asm volatile ("csrr %0, mhpmcounter4" : "=r"(value)); break;
@@ -623,14 +634,6 @@ bool isFirmwareEvent(uint64 event_idx) {
 
 uint64 read_hw_event_csr(uint64 hw_event_csr_idx) {
     uint64 value = 0;
-    if (hw_event_csr_idx < SBI_PMU_HW_COUNTER_IDX_BASE ||
-        hw_event_csr_idx >= (SBI_PMU_HW_COUNTER_IDX_BASE + actual_num_hw_counters)) {
-         #ifdef SBI_PMU_DEBUG
-        printf("Warning: read_hw_event_csr called for unimplemented CSR index %lld\n", hw_event_csr_idx);
-        #endif
-        return 0;
-    }
-    // Switch statement remains the same
     switch(hw_event_csr_idx) {
         case 3:  asm volatile ("csrr %0, mhpmevent3" : "=r"(value)); break;
         case 4:  asm volatile ("csrr %0, mhpmevent4" : "=r"(value)); break;
@@ -668,14 +671,6 @@ uint64 read_hw_event_csr(uint64 hw_event_csr_idx) {
 }
 
 void write_hw_counter(uint64 hw_counter_csr_idx, uint64 value) {
-    if (hw_counter_csr_idx < SBI_PMU_HW_COUNTER_IDX_BASE ||
-        hw_counter_csr_idx >= (SBI_PMU_HW_COUNTER_IDX_BASE + actual_num_hw_counters)) {
-        #ifdef SBI_PMU_DEBUG
-        printf("Warning: write_hw_counter called for unimplemented CSR index %lld\n", hw_counter_csr_idx);
-        #endif
-        return; // Don't write to unimplemented counters
-    }
-    // Switch statement remains the same
      switch(hw_counter_csr_idx) {
         case 3:  asm volatile ("csrw mhpmcounter3, %0" :: "r"(value)); break;
         case 4:  asm volatile ("csrw mhpmcounter4, %0" :: "r"(value)); break;
@@ -712,14 +707,6 @@ void write_hw_counter(uint64 hw_counter_csr_idx, uint64 value) {
 }
 
 void write_hw_event_csr(uint64 hw_event_csr_idx, uint64 value) {
-    if (hw_event_csr_idx < SBI_PMU_HW_COUNTER_IDX_BASE ||
-        hw_event_csr_idx >= (SBI_PMU_HW_COUNTER_IDX_BASE + actual_num_hw_counters)) {
-        #ifdef SBI_PMU_DEBUG
-        printf("Warning: write_hw_event_csr called for unimplemented CSR index %lld\n", hw_event_csr_idx);
-        #endif
-        return;
-    }
-    // Switch statement remains the same
     switch(hw_event_csr_idx) {
         case 3:  asm volatile ("csrw mhpmevent3, %0" :: "r"(value)); break;
         case 4:  asm volatile ("csrw mhpmevent4, %0" :: "r"(value)); break;
@@ -755,7 +742,6 @@ void write_hw_event_csr(uint64 hw_event_csr_idx, uint64 value) {
     }
 }
 
-// mcountinhibit access remains the same
 uint64 read_mcountinhibit(void) {
     uint64 value;
     asm volatile ("csrr %0, mcountinhibit" : "=r"(value));
@@ -763,7 +749,7 @@ uint64 read_mcountinhibit(void) {
 }
 void write_mcountinhibit(uint64 value) {
     #ifdef SBI_PMU_DEBUG
-    // printf("write_mcountinhibit(val=0x%lx)\n", value);
+    // printf("write_mcountinhibit(val=0x%x)\n", value);
     #endif
     asm volatile ("csrw mcountinhibit, %0" :: "r"(value));
 }
@@ -772,7 +758,7 @@ void write_mcountinhibit(uint64 value) {
 
 void dump_hpm(uint64 counter_sbi_idx) {
     #ifdef SBI_PMU_DEBUG
-    printf("dump_hpm(SBI Idx=%lld): ", counter_sbi_idx);
+    printf("dump_hpm(SBI Idx=%d): ", counter_sbi_idx);
 
     uint64 counter_state = 0;
     uint64 event_state = 0;
@@ -797,7 +783,7 @@ void dump_hpm(uint64 counter_sbi_idx) {
         printf("[FW] ");
     }
 
-    printf("%s [Event: 0x%lx]: %lld\n",
+    printf("%s [Event: 0x%x]: %d\n",
            is_counting ? "Counting" : "Stopped ",
            event_state, counter_state);
     #endif // SBI_PMU_DEBUG
@@ -807,15 +793,15 @@ void dump_hpm_state(void) {
      #ifdef SBI_PMU_DEBUG
     printf("--- PMU Counter State Dump ---\n");
     uint64 mcountinhibit = read_mcountinhibit();
-    printf("mcountinhibit: 0x%lx\n", mcountinhibit);
+    printf("mcountinhibit: 0x%x\n", mcountinhibit);
     uint64 total_counters = actual_num_hw_counters + SBI_PMU_COUNTER_NUM_FW;
 
-    printf("Hardware Counters (SBI Index 0-%lld):\n", actual_num_hw_counters - 1);
+    printf("Hardware Counters (SBI Index 0-%d):\n", actual_num_hw_counters - 1);
     for (uint64 i = 0; i < actual_num_hw_counters; i++) {
         dump_hpm(i); // Use SBI index
     }
 
-    printf("Firmware Counters (SBI Index %lld-%lld):\n", actual_num_hw_counters, total_counters - 1);
+    printf("Firmware Counters (SBI Index %d-%d):\n", actual_num_hw_counters, total_counters - 1);
      for (uint64 i = actual_num_hw_counters; i < total_counters; i++) {
         dump_hpm(i); // Use SBI index
     }

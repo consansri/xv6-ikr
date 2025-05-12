@@ -22,12 +22,16 @@ uint64 get_physical_mask(struct proc *p, uint64 handle_mask) {
 
 // Helper to clear existing PMU config for a process
 void pmu_clear_config(struct proc *p) {
+    #ifdef KERNEL_PMU_DEBUG
+    //printf("pmu_clear_config(proc: %d)\n", p->pid);
+    #endif
+
     acquire(&p->lock);
     uint64 started_physical_mask = get_physical_mask(p, p->pmu_started_handles_mask);
     release(&p->lock);
 
     if(started_physical_mask != 0) {
-        stop_physical_counters(started_physical_mask); // Ignore errors during cleanup
+        stop_physical_counters_with_reset(started_physical_mask); // Ignore errors during cleanup
     }
 
     acquire(&p->lock);
@@ -39,24 +43,112 @@ void pmu_clear_config(struct proc *p) {
     release(&p->lock);
 }
 
+int stop_physical_counters_with_reset(uint64 physical_mask) {
+    #ifdef KERNEL_PMU_DEBUG
+    //printf("stop_physical_counters(physical_mask: %x)\n", physical_mask);
+    #endif
+
+    if (physical_mask == 0) return 0; // Nothing to stop
+    // Call SBI stop with base=0, mask=physical_mask, flags=1 (reset)
+    struct SbiRet ret = sbi_pmu_counter_stop(0, physical_mask, 1);
+    if (ret.error != SBI_SUCCESS) {
+        return -1;
+    }
+
+    return  0;
+}
+
 // Helper to stop specific physical counters
 // Uses the sbi_pmu_counter_stop wrapper from sbi_call.h
 int stop_physical_counters(uint64 physical_mask) {
+    #ifdef KERNEL_PMU_DEBUG
+    //printf("stop_physical_counters(physical_mask: %x)\n", physical_mask);
+    #endif
+
     if (physical_mask == 0) return 0; // Nothing to stop
     // Call SBI stop with base=0, mask=physical_mask, flags=0 (don't reset value)
     struct SbiRet ret = sbi_pmu_counter_stop(0, physical_mask, 0);
-    return (ret.error == SBI_SUCCESS) ? 0 : -1;
+    if (ret.error != SBI_SUCCESS) {
+        return -1;
+    }
+
+    return  0;
 }
 
 // Helper to start specific physical counters with reset
 // Uses the sbi_pmu_counter_start wrapper from sbi_call.h
 int start_physical_counters_with_reset(uint64 physical_mask) {
+    #ifdef KERNEL_PMU_DEBUG
+    //printf("start_physical_counters_with_reset(physical_mask: %x)\n", physical_mask);
+    #endif
+
     if (physical_mask == 0) return 0;
     // Call SBI start with base=0, mask=physical_mask, flags=1 (set initial value), initial_value=0
     struct SbiRet ret = sbi_pmu_counter_start(0, physical_mask, 1, 0);
-    return (ret.error == SBI_SUCCESS) ? 0 : -1;
+
+    if(ret.error != SBI_SUCCESS) {
+        return -1;
+    }
+
+    return 0;
 }
 
+// Helper to start specific physical counters
+// Uses the sbi_pmu_counter_start wrapper from sbi_call.h
+int start_physical_counters(uint64 physical_mask) {
+    #ifdef KERNEL_PMU_DEBUG
+    //printf("start_physical_counters(physical_mask: %x)\n", physical_mask);
+    #endif
+
+    if (physical_mask == 0) return 0;
+    // Call SBI start with base=0, mask=physical_mask, flags=1 (set initial value), initial_value=0
+    struct SbiRet ret = sbi_pmu_counter_start(0, physical_mask, 0, 0);
+
+    if(ret.error != SBI_SUCCESS) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
+uint64 hw_read_counter(uint64 hw_csr_addr) {
+    uint64 value = 0;
+    switch(hw_csr_addr & 0b11111) {
+        case 3:  asm volatile ("csrr %0, hpmcounter3" : "=r"(value)); break;
+        case 4:  asm volatile ("csrr %0, hpmcounter4" : "=r"(value)); break;
+        case 5:  asm volatile ("csrr %0, hpmcounter5" : "=r"(value)); break;
+        case 6:  asm volatile ("csrr %0, hpmcounter6" : "=r"(value)); break;
+        case 7:  asm volatile ("csrr %0, hpmcounter7" : "=r"(value)); break;
+        case 8:  asm volatile ("csrr %0, hpmcounter8" : "=r"(value)); break;
+        case 9:  asm volatile ("csrr %0, hpmcounter9" : "=r"(value)); break;
+        case 10: asm volatile ("csrr %0, hpmcounter10" : "=r"(value)); break;
+        case 11: asm volatile ("csrr %0, hpmcounter11" : "=r"(value)); break;
+        case 12: asm volatile ("csrr %0, hpmcounter12" : "=r"(value)); break;
+        case 13: asm volatile ("csrr %0, hpmcounter13" : "=r"(value)); break;
+        case 14: asm volatile ("csrr %0, hpmcounter14" : "=r"(value)); break;
+        case 15: asm volatile ("csrr %0, hpmcounter15" : "=r"(value)); break;
+        case 16: asm volatile ("csrr %0, hpmcounter16" : "=r"(value)); break;
+        case 17: asm volatile ("csrr %0, hpmcounter17" : "=r"(value)); break;
+        case 18: asm volatile ("csrr %0, hpmcounter18" : "=r"(value)); break;
+        case 19: asm volatile ("csrr %0, hpmcounter19" : "=r"(value)); break;
+        case 20: asm volatile ("csrr %0, hpmcounter20" : "=r"(value)); break;
+        case 21: asm volatile ("csrr %0, hpmcounter21" : "=r"(value)); break;
+        case 22: asm volatile ("csrr %0, hpmcounter22" : "=r"(value)); break;
+        case 23: asm volatile ("csrr %0, hpmcounter23" : "=r"(value)); break;
+        case 24: asm volatile ("csrr %0, hpmcounter24" : "=r"(value)); break;
+        case 25: asm volatile ("csrr %0, hpmcounter25" : "=r"(value)); break;
+        case 26: asm volatile ("csrr %0, hpmcounter26" : "=r"(value)); break;
+        case 27: asm volatile ("csrr %0, hpmcounter27" : "=r"(value)); break;
+        case 28: asm volatile ("csrr %0, hpmcounter28" : "=r"(value)); break;
+        case 29: asm volatile ("csrr %0, hpmcounter29" : "=r"(value)); break;
+        case 30: asm volatile ("csrr %0, hpmcounter30" : "=r"(value)); break;
+        case 31: asm volatile ("csrr %0, hpmcounter31" : "=r"(value)); break;
+        default: break;
+    }
+
+    return value;
+}
 
 // Syscall Implementation: pmu_setup
 uint64 sys_pmu_setup(void) {
@@ -68,6 +160,10 @@ uint64 sys_pmu_setup(void) {
     if(argaddr(0, &config_mask) < 0 || argaddr(1, &user_event_codes_ptr) < 0 || argaddr(2, &user_flags_ptr) < 0) {
         return -1; // Use standard negative return for pointer errors
     }
+
+    #ifdef KERNEL_PMU_DEBUG
+    printf("sys_pmu_setup(config_mask: %d, user_event_codes_ptr: %x, user_flags_ptr: %x)\n", config_mask, user_event_codes_ptr, user_flags_ptr);
+    #endif
 
     if(config_mask == 0) {
         pmu_clear_config(p); // Clear old config even if new one is empty
@@ -160,6 +256,10 @@ uint64 sys_pmu_control(void) {
         return -1;
     }
 
+    #ifdef KERNEL_PMU_DEBUG
+    printf("sys_pmu_control(action: %d, handle_mask: %x, user_values_out_ptr: %x)\n", action, handle_mask, user_values_out_ptr);
+    #endif
+
     acquire(&p->lock);
     // Verify handle_mask is a subset of successfully configured handles
     if((handle_mask & ~p->pmu_config_success_mask) != 0) {
@@ -200,25 +300,38 @@ uint64 sys_pmu_control(void) {
         for(int handle = 0; handle < MAX_PMU_HANDLES; ++handle) {
             if(handle_mask & (1L << handle)) {
                 // Check if handle is valid (should be, due to earlier check)
+
                 acquire(&p->lock);
-                 if(!p->pmu_maps[handle].valid) { release(&p->lock); continue; } // Should not happen
-                 uint64 phys_idx = p->pmu_maps[handle].counter_idx;
+                uint64 phys_idx = p->pmu_maps[handle].counter_idx;
                 release(&p->lock);
 
-                struct SbiRet read_ret = sbi_pmu_counter_fw_read(phys_idx);
+                struct SbiRet read_ret = sbi_pmu_counter_get_info(phys_idx);
                 if(read_ret.error != SBI_SUCCESS) {
-                    sbi_error = 1;
-                     printf("pmu_control: fw_read failed for handle %d (phys %d)\n", handle, (int)phys_idx);
-                    // Continue trying to read others? Or fail fast? Let's continue.
-                    uint64 error_val = -1L; // Indicate read error for this counter?
-                     if(copyout(p->pagetable, user_values_out_ptr + write_idx * sizeof(uint64), (char *)&error_val, sizeof(uint64)) != 0) return -1; // Copyout fail is fatal
-
-                } else {
-                    uint64 value = read_ret.value;
-                    if(copyout(p->pagetable, user_values_out_ptr + write_idx * sizeof(uint64), (char *)&value, sizeof(uint64)) != 0) {
-                        return -1; // Copyout fail is fatal
-                    }
+                    printf("pmu_control: read failed for handle %d (phys %d)\n", handle, phys_idx);
+                    write_idx++;
+                    continue;
                 }
+
+                uint64 value;
+                if((read_ret.value & (1UL << 63)) == 0) {
+                    // HW
+                    uint64 csr_addr = read_ret.value & 0b111111111111;
+                    value = hw_read_counter(csr_addr);
+                    #ifdef KERNEL_PMU_DEBUG
+                    printf("sys_pmu_control() -> HW READ(csr = %x) %d: %d \n", csr_addr, handle, value);
+                    #endif
+                } else {
+                    // FW
+                    value = sbi_pmu_counter_fw_read(phys_idx).value;
+                    #ifdef KERNEL_PMU_DEBUG
+                    printf("sys_pmu_control() -> FW READ %d: %d \n", handle, value);
+                    #endif
+                }
+
+                if(copyout(p->pagetable, user_values_out_ptr + write_idx * sizeof(uint64), (char *)&value, sizeof(uint64)) != 0) {
+                    return -1; // Copyout is fatal
+                }
+
                 write_idx++;
             }
         }
@@ -229,7 +342,7 @@ uint64 sys_pmu_control(void) {
          // Reset counters before starting by using flag bit 0 in sbi_pmu_counter_start
         if(start_physical_counters_with_reset(physical_mask) != 0) { // Need a new helper for this
             sbi_error = 1;
-             printf("pmu_control: start_physical_counters_with_reset failed\n");
+            printf("pmu_control: start_physical_counters_with_reset failed\n");
         }
     }
 
@@ -242,5 +355,9 @@ uint64 sys_pmu_control(void) {
     }
     release(&p->lock);
 
-    return sbi_error ? -1 : 0; // Return error if any SBI call failed
+    if(sbi_error) {
+        return -1; // Return error if any SBI call failed
+    }
+
+    return 0; 
 }

@@ -8,7 +8,7 @@
 #include "file.h"
 #include "fat32.h"
 #include "trap.h"
-#define MAX_PMU_HANDLES         8
+#define MAX_PMU_HANDLES         32
 
 // Saved registers for kernel context switches.
 struct context {

@@ -3,6 +3,8 @@
 
 #include "sbi_call.h"
 #include "sbi_tools_pmu.h"
+#include "sbi_impl_pmu.h"
+#include "../sbi_impl_pmu.c"
 #include <stdbool.h>
 
 
@@ -46,51 +48,51 @@ void sbi_info(void) {
 
     // Hart State Management
     proberet = sbi_probe_extension(0x48534D);
-    printf("        [%d]: hart state management (HSM)\n");
+    printf("        [%d]: hart state management (HSM)\n", proberet.value);
 
     // System Reset
     proberet = sbi_probe_extension(0x53525354);
-    printf("        [%d]: system reset (SRST)\n");
+    printf("        [%d]: system reset (SRST)\n", proberet.value);
 
     // Performance Monitoring Unit
     proberet = sbi_probe_extension(0x504D55);
-    printf("        [%d]: performance monitoring unit (PMU)\n");
+    printf("        [%d]: performance monitoring unit (PMU) (ctr: HW=%d, FW=%d)\n", proberet.value, actual_num_hw_counters, SBI_PMU_COUNTER_NUM_FW);
 
     // Debug Console
     proberet = sbi_probe_extension(0x4442434E);
-    printf("        [%d]: debug console (DBCN)\n");
+    printf("        [%d]: debug console (DBCN)\n", proberet.value);
 
     // System Suspend
     proberet = sbi_probe_extension(0x53555350);
-    printf("        [%d]: system suspend (SUSP)\n");
+    printf("        [%d]: system suspend (SUSP)\n", proberet.value);
 
     // CPPC
     proberet = sbi_probe_extension(0x43505043);
-    printf("        [%d]: collaborative processor performance control (CPPC)\n");
+    printf("        [%d]: collaborative processor performance control (CPPC)\n", proberet.value);
 
     // Nested Acceleration
     proberet = sbi_probe_extension(0x4E41434C);
-    printf("        [%d]: nested acceleration (NACL)\n");
+    printf("        [%d]: nested acceleration (NACL)\n", proberet.value);
 
     // Steal-time Accounting
     proberet = sbi_probe_extension(0x535441);
-    printf("        [%d]: steal-time accounting (STA)\n");
+    printf("        [%d]: steal-time accounting (STA)\n", proberet.value);
 
     // Supervisor Software Events
     proberet = sbi_probe_extension(0x535345);
-    printf("        [%d]: supervisor software events (SSE)\n");
+    printf("        [%d]: supervisor software events (SSE)\n", proberet.value);
 
     // SBI Firmware Features
     proberet = sbi_probe_extension(0x46574654);
-    printf("        [%d]: sbi firmware features (FWFT)\n");
+    printf("        [%d]: sbi firmware features (FWFT)\n", proberet.value);
 
     // Debug Triggers
     proberet = sbi_probe_extension(0x44425452);
-    printf("        [%d]: debug triggers (DBTR)\n");
+    printf("        [%d]: debug triggers (DBTR)\n", proberet.value);
 
     // Message Proxy
     proberet = sbi_probe_extension(0x4D505859);
-    printf("        [%d]: message proxy (MPXY)\n");
+    printf("        [%d]: message proxy (MPXY)\n", proberet.value);
 
     printf("\n");
 

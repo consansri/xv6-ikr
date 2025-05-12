@@ -604,7 +604,10 @@ scheduler(void)
 
         // Call SBI with interrupts enabled and no locks held
         if (start_mask != 0) {
-          start_physical_counters_with_reset(start_mask); // Ignore errors
+          #ifdef KERNEL_PMU_DEBUG
+          //printf("(proc: %d) scheduler -> start_physical_counters\n", p->pid);
+          #endif
+          start_physical_counters(start_mask); // Ignore errors
         }
 
         // Re-acquire locks before switch
@@ -637,6 +640,9 @@ scheduler(void)
 
         // Call SBI with interrupts enabled and no locks held
         if (stop_mask != 0) {
+          #ifdef KERNEL_PMU_DEBUG
+          //printf("(proc: %d) scheduler -> stop_physical_counters\n", p->pid);
+          #endif
           stop_physical_counters(stop_mask); // Ignore errors
         }
 

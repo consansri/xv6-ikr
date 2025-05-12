@@ -206,7 +206,7 @@ UPROGS=\
 	$U/_testauxser\
 	$U/_testfb\
 	$U/_grafx\
-	$U/_pmutest\
+	$U/_testpmu\
 
 	# $U/_perftest\
 	# $U/_forktest\

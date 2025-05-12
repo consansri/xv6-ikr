@@ -15,7 +15,7 @@ int count_set_bits(unsigned long mask) {
 void busy_loop(int iterations) {
     volatile int i, j;
     for (i = 0; i < iterations; ++i) {
-        for (j = 0; j < 10000; ++j) {
+        for (j = 0; j < 100; ++j) {
             // Just consume CPU cycles
         }
     }
@@ -61,7 +61,7 @@ int main(void) {
         // It's possible that the hardware has 0 counters, or SBI reports 0.
         // The kernel's sys_pmu_setup returns 0 if num_physical_counters <= 0.
         // We should exit gracefully if this is the case.
-        printf("Exiting pmutest.\n");
+        printf("Exiting testpmu.\n");
         exit(0);
     }
     
@@ -81,7 +81,6 @@ int main(void) {
             exit(-1);
         }
     }
-
 
     // --- Test 2: Start, run workload, stop, and read counters ---
     if (success_mask != 0) {

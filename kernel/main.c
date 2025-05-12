@@ -118,7 +118,7 @@ main(unsigned long hartid, unsigned long dtb_pa)
 
   sbi_info();
 
-  // sbi_test_pmu();  
+  sbi_test_pmu();
 
   // kernel -> user break
   printf("Kernel Startup finished.\n");
