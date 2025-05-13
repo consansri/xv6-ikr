@@ -66,17 +66,17 @@ struct SbiRet sbi_get_mvendorid_impl(void) {
 
 struct SbiRet sbi_get_marchid_impl(void) {
 
-    uint64 marchid;
+    uint64 marchid_val;
 
     asm volatile(
         "csrr %0, marchid"
         :
-        : "r" (marchid)
+        : "r" (marchid_val)
     );
 
     struct SbiRet sbiret;
     sbiret.error = SBI_SUCCESS;
-    sbiret.value = 0;
+    sbiret.value = marchid_val;
 
     return sbiret;
 }

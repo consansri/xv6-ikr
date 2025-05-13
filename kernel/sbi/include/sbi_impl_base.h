@@ -3,11 +3,11 @@
 
 #include "sbi_impl.h"
 
-#define SBI_SPEC_VERSION_MAJ        3
+#define SBI_SPEC_VERSION_MAJ        2
 #define SBI_SPEC_VERSION_MIN        0
 #define SBI_IMPL_ID                 0xC3
 #define SBI_IMPL_VERSION_MAJ        0
-#define SBI_IMPL_VERSION_MIN        2
+#define SBI_IMPL_VERSION_MIN        1
 
 struct SbiRet sbi_get_spec_version_impl(void);
 struct SbiRet sbi_get_impl_id_impl(void);
