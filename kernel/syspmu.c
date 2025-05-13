@@ -6,7 +6,6 @@
 #include "sbi/include/sbi_call.h"
 #include "include/vm.h" // For copyin, copyout
 
-// Helper function from previous implementation
 uint64 get_physical_mask(struct proc *p, uint64 handle_mask) {
     uint64 physical_mask = 0;
     // Ensure we only consider valid handles from the last successful setup
@@ -18,7 +17,6 @@ uint64 get_physical_mask(struct proc *p, uint64 handle_mask) {
     }
     return physical_mask;
 }
-// Helpers stop_physical_counters, start_physical_counters remain similar
 
 // Helper to clear existing PMU config for a process
 void pmu_clear_config(struct proc *p) {
@@ -43,6 +41,7 @@ void pmu_clear_config(struct proc *p) {
     release(&p->lock);
 }
 
+// Helper to stop specific physical counters and free them
 int stop_physical_counters_with_reset(uint64 physical_mask) {
     #ifdef KERNEL_PMU_DEBUG
     //printf("stop_physical_counters(physical_mask: %x)\n", physical_mask);
